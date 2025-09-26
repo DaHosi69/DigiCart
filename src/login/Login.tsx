@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,10 +13,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function Login() {
+  const navigate = useNavigate();
 
-    
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    navigate("/home"); 
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50  dark:bg-gray-900 dark:text-gray-100">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
       <Card className="w-full max-w-sm align-middle">
         <CardHeader>
           <CardTitle>Login to your account</CardTitle>
@@ -27,7 +34,7 @@ export default function Login() {
           </CardAction>
         </CardHeader>
         <CardContent>
-          <form>
+          <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
@@ -50,13 +57,13 @@ export default function Login() {
                 </div>
                 <Input id="password" type="password" required />
               </div>
+              <Button type="submit" className="w-full">
+                Login
+              </Button>
             </div>
           </form>
         </CardContent>
         <CardFooter className="flex-col gap-2">
-          <Button type="submit" className="w-full">
-            Login
-          </Button>
           <Button variant="outline" className="w-full">
             Login with Google
           </Button>
