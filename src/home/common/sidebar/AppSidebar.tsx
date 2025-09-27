@@ -1,4 +1,6 @@
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react"
+import { supabase } from "@/lib/supabaseClient";
+import { NavLink, useNavigate } from "react-router-dom"
+import { Calendar, Home, Inbox, Search, Settings, LogOut } from "lucide-react";
 
 import {
   Sidebar,
@@ -9,7 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 // Menu items.
 const items = [
@@ -35,12 +37,18 @@ const items = [
   },
   {
     title: "Settings",
-    url: "/home/settings" ,
+    url: "/home/settings",
     icon: Settings,
   },
-]
+];
 
 export default function AppSidebar() {
+  const navigate = useNavigate()
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <Sidebar className="transition-colors duration-500">
       <SidebarContent className="transition-colors duration-500">
@@ -51,17 +59,25 @@ export default function AppSidebar() {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={item.url}>
+                    <NavLink to={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
-                    </a>
+                    </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              <SidebarMenuItem key={"Logout"}>
+                <SidebarMenuButton asChild>
+                  <a onClick={handleLogout}>
+                    <LogOut />
+                    <span>Logout</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }

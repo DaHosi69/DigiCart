@@ -16,25 +16,22 @@ export default function Home() {
           <Badge variant="secondary">Liste: Wocheneinkauf</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {/* share/settings/theme etc. */}
           <Button variant="ghost" size="icon">Share</Button>
           <Button variant="ghost" size="icon">Settings</Button>
-          <Switch /* darkmode */ />
+          <Switch />
         </div>
       </div>
 
-      {/* Suche + Filter */}
       <div className="mt-4 flex items-center gap-2">
         <div className="relative flex-1">
           <Input placeholder="Suchen oder hinzufügen…" className="pl-9" />
           <div className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
         </div>
-        <div /> {/* Sheet/Popover mit Optionen */}
+        <div /> 
       </div>
 
-      {/* Grid */}
       <div className="mt-4 grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4 lg:gap-6">
-        {/* Linke Spalte: Tabs + Liste */}
+    
         <Card className="overflow-hidden">
           <div className="p-2">
             <Tabs defaultValue="open" className="w-full">
@@ -53,7 +50,6 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Rechte Spalte */}
         <div className="space-y-4">
        cards
         </div>
