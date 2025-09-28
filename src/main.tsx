@@ -8,18 +8,18 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import AppSettings from "./shared/components/AppSettings.tsx";
 import { RequireAdmin, RequireAuth } from "./shared/components/guards.tsx";
 import { AuthProvider } from "./providers/AuthProvider.tsx";
+import Lists from "./home/common/Lists/Lists.tsx";
+import Products from "./home/common/Products/Products.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
     <AuthProvider>
       {" "}
-      {/* <-- WICHTIG */}
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/login" element={<Login />} />
 
-          {/* geschützter Bereich */}
           <Route
             element={
               <RequireAuth>
@@ -37,8 +37,9 @@ createRoot(document.getElementById("root")!).render(
                 </RequireAdmin>
               }
             />
+            <Route path="/lists" element={<Lists/>}/>
+            <Route path="/products" element={<Products/>}/>
           </Route>
-
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </BrowserRouter>

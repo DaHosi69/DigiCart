@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
-import { NavLink, useNavigate } from "react-router-dom"
-import { Calendar, Home, Inbox, Search, Settings, LogOut } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { ShoppingBasket, Home, List, Settings, LogOut } from "lucide-react";
 
 import {
   Sidebar,
@@ -11,29 +11,25 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 // Menu items.
 const items = [
   {
-    title: "Home",
+    title: "Übersicht",
     url: "/home",
     icon: Home,
   },
   {
-    title: "Inbox",
-    url: "#",
-    icon: Inbox,
+    title: "Listen",
+    url: "/lists",
+    icon: List,
   },
   {
-    title: "Calendar",
-    url: "#",
-    icon: Calendar,
-  },
-  {
-    title: "Search",
-    url: "#",
-    icon: Search,
+    title: "Produkte",
+    url: "/products",
+    icon: ShoppingBasket,
   },
   {
     title: "Settings",
@@ -43,7 +39,14 @@ const items = [
 ];
 
 export default function AppSidebar() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  const { isMobile, setOpen, setOpenMobile } = useSidebar();
+
+  const closeSidebar = () => {
+    if (isMobile) setOpenMobile(false);
+    else setOpen(true);
+  };
+  
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/login", { replace: true });
@@ -53,13 +56,13 @@ export default function AppSidebar() {
     <Sidebar className="transition-colors duration-500">
       <SidebarContent className="transition-colors duration-500">
         <SidebarGroup className="transition-colors duration-500">
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupLabel>DigiCart</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="transition-colors duration-500">
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url}>
+                    <NavLink to={item.url} onClick={closeSidebar}>
                       <item.icon />
                       <span>{item.title}</span>
                     </NavLink>
@@ -70,7 +73,7 @@ export default function AppSidebar() {
                 <SidebarMenuButton asChild>
                   <a onClick={handleLogout}>
                     <LogOut />
-                    <span>Logout</span>
+                    <span>Abmelden</span>
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>

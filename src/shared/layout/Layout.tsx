@@ -4,7 +4,7 @@ import AppSidebar from "@/home/common/sidebar/AppSidebar";
 
 export default function Layout() {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <main className="flex-1 bg-gradient-to-t from-white to-gray-500

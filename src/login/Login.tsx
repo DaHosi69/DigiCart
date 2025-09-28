@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -10,8 +10,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-
-
   
   const onLogin = async () => {
     setError(null);
@@ -46,16 +44,10 @@ export default function Login() {
              transition-colors duration-500"
     >
       <Card
-        className="w-full max-w-sm rounded-2xl shadow-xl border border-white/20 
+        className="w-full max-w-sm rounded-xl shadow-xl border border-white/20 
                    bg-white/70 dark:bg-zinc-800/70 backdrop-blur-md"
       >
         <CardHeader className="text-center space-y-2">
-          <CardTitle className="text-2xl font-bold text-gray-800 dark:text-white">
-            Willkommen zurück
-          </CardTitle>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Melde dich an, um fortzufahren
-          </p>
           <img src="/DigiCartBW.svg"/>
         </CardHeader>
 
