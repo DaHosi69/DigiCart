@@ -10,6 +10,7 @@ import { RequireAdmin, RequireAuth } from "./shared/components/guards.tsx";
 import { AuthProvider } from "./providers/AuthProvider.tsx";
 import Lists from "./home/common/Lists/Lists.tsx";
 import Products from "./home/common/Products/Products.tsx";
+import Billings from "./home/common/Billings/Billings.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
@@ -39,6 +40,7 @@ createRoot(document.getElementById("root")!).render(
             />
             <Route path="/lists" element={<Lists/>}/>
             <Route path="/products" element={<Products/>}/>
+            <Route path="/billings" element={<Billings/>}/>
           </Route>
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
