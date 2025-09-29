@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Toolbar from "./common/Toolbar/Toolbar";
 
 export default function Home() {
+
   return (
     <div className="max-w-7xl mx-auto p-4 lg:p-6">
       {/* Header */}

@@ -15,7 +15,6 @@ import Billings from "./home/common/Billings/Billings.tsx";
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
     <AuthProvider>
-      {" "}
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
