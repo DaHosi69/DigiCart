@@ -18,7 +18,7 @@ type NewListFormProps = {
   defaultNote?: string;
   onBack?: () => void;
   onCancel?: () => void;
-  onSave?: (data: { name: string; note: string }) => void;
+  onSave?: (data: { listname: string; listnote: string }) => void | Promise<void>;
 };
 
 export default function NewShoppingListForm({
@@ -33,7 +33,7 @@ export default function NewShoppingListForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave?.({ name: name.trim(), note: note.trim() });
+    onSave?.({ listname: name.trim(), listnote: note.trim() });
   };
 
   return (
