@@ -11,7 +11,7 @@ export type ShoppingList = {
   is_active: boolean;
   notes?: string | null;
   managed_by_profile_id?: string | null;
-  created_at: string; // ISO string
+  created_at: string; 
 };
 
 function formatDate(d: string) {

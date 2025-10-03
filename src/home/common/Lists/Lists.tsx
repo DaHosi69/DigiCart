@@ -4,15 +4,22 @@ import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from "@/shared/classes/database.types";
 import { useState } from "react";
+import { ShoppingListCard } from "./components/ShoppingListCard";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
-
 
 export default function Lists() {
   const navigate = useNavigate();
   const { isAdmin, profile } = useAuth();
   const [lists, setLists] = useState<ShoppingList[]>([]);
 
+  const loadAllLists = async () => {
+    let { data: shopping_lists, error } = await supabase
+      .from("shopping_lists")
+      .select("*");
+
+      setLists(shopping_lists as ShoppingList[]);
+  };
 
   const addNewList = async (data: { listname: string; listnote: string }) => {
     const { data: inserted, error } = await supabase
@@ -44,6 +51,9 @@ export default function Lists() {
           onSave={addNewList}
         />
       )}
+      {lists.map((list, index) => (
+        <ShoppingListCard list={list}/>
+      ))}
     </>
   );
 }
