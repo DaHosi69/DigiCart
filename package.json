@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@photo-sphere-viewer/autorotate-plugin": "^5.14.0",
+    "@photo-sphere-viewer/gyroscope-plugin": "^5.14.0",
+    "@photo-sphere-viewer/markers-plugin": "^5.14.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-scroll-area": "^1.2.10",
@@ -24,6 +27,7 @@
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^0.544.0",
     "next-themes": "^0.4.6",
+    "photo-sphere-viewer": "^4.8.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.62.0",
