@@ -1,115 +1,128 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import "@photo-sphere-viewer/core/index.css";
-import "@photo-sphere-viewer/markers-plugin/index.css";
+import "@photo-sphere-viewer/virtual-tour-plugin/index.css";
+import "@photo-sphere-viewer/gallery-plugin/index.css";
+
 import { Viewer } from "@photo-sphere-viewer/core";
+import { VirtualTourPlugin } from "@photo-sphere-viewer/virtual-tour-plugin";
+import { GalleryPlugin } from "@photo-sphere-viewer/gallery-plugin";
 import { MarkersPlugin } from "@photo-sphere-viewer/markers-plugin";
 
-/** ---- Deine Szenen + „Weiter“-Links ---- */
-type Link = {
-  to: string;           // Ziel-Szene-ID
-  yawDeg: number;       // Richtung des Pfeils (0..360 Grad, Uhrzeigersinn)
-  pitchDeg?: number;    // optional (z. B. leicht nach unten)
-  label?: string;       // Tooltip
-};
+type Props = { width?: string; height?: string; startId?: string };
 
-type Scene = {
-  id: string;
-  src: string;          // equirectangular JPG/PNG (2:1)
-  links: Link[];        // wohin man „weitergehen“ kann
-};
-
-const SCENES: Scene[] = [
-  {
-    id: "floor1",
-    src: "/panos/01.jpg",
-    links: [
-      { to: "floor2", yawDeg: 0, label: "" },
-    ],
-  },
-  {
-    id: "floor2",
-    src: "/panos/02.jpg",
-    links: [
-      { to: "room", yawDeg: 325},
-      { to: "floor1", yawDeg: 220},
-    ],
-  },
-  /*{
-    id: "balcony",
-    src: "/panos/balcony.jpg",
-    links: [
-      { to: "room", yawDeg: 0,   label: "Zum Wohnzimmer" },
-      { to: "hall", yawDeg: 320, label: "Zum Flur" },
-    ],
-  },*/
-];
-
-/** Einfacher runder Pfeil-Button als HTML-Marker */
-const arrowHtml = (deg: number) => `
-  <div style="
-    width:50px;height:50px;border-radius:999px;background:transparent;
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 2px 10px rgba(0,0,0,.25);transform:rotate(${deg}deg);
-  ">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <path d="M12 3l7 7h-4v7h-6v-7H5l7-7z" fill="black"/>
-    </svg>
-  </div>
-`;
-
-type Props = { initialId?: string; width?: string; height?: string };
-
-export default function PanoViewer({ initialId = "floor1", width = "100%", height = "70vh" }: Props) {
+export default function PanoViewerVT({
+  width = "100%",
+  height = "70vh",
+  startId = "floor2",
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
-  const [activeId, setActiveId] = useState(initialId);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Viewer initialisieren (wie in der Doku)
+    // ===== deine Nodes (aus deinen SCENES) =====
+    const nodes = [
+      {
+        id: "floor1",
+        panorama: "/panos/01.jpg",
+        name: "Floor 1",
+        // Pfeil von 1 -> 2 (nach vorne, leicht nach unten)
+        links: [{ nodeId: "floor2", position: { yaw: "0deg", pitch: "-30deg" } }],
+        // optional, wenn du bereits Marker hast:
+        // markers: [{ id:'m1', position:{ yaw:'45deg', pitch:'0deg' }, tooltip:'Info' }],
+        thumbnail: "/panos/thumbs/01.jpg", // optional
+        caption: "Floor 1",
+        sphereCorrection: { pan: "0deg" }, // optional
+      },
+      {
+        id: "floor2",
+        panorama: "/panos/02.jpg",
+        name: "Floor 2",
+        links: [
+          { nodeId: "floor3", position: { yaw: "325deg", pitch: "-30deg" } },
+          { nodeId: "floor1", position: { yaw: "220deg", pitch: "-30deg" } },
+        ],
+        thumbnail: "/panos/thumbs/02.jpg",
+        caption: "Floor 2",
+      },
+      {
+        id: "floor3",
+        panorama: "/panos/03.jpg",
+        name: "Floor 3",
+        links: [
+          { nodeId: "floor4", position: { yaw: "320deg", pitch: "-30deg" } },
+          { nodeId: "floor2", position: { yaw: "180deg", pitch: "-30deg" } },
+          { nodeId: "floor5", position: { yaw: "115deg", pitch: "-30deg" } },
+          { nodeId: "floor6", position: { yaw: "200deg", pitch: "0deg" } },
+        ],
+        thumbnail: "/panos/thumbs/03.jpg",
+        caption: "Floor 3",
+      },
+      {
+        id: "floor4",
+        panorama: "/panos/04.jpg",
+        name: "Floor 4",
+        links: [{ nodeId: "floor3", position: { yaw: "145deg", pitch: "-30deg" } }],
+        thumbnail: "/panos/thumbs/04.jpg",
+        caption: "Floor 4",
+      },
+      {
+        id: "floor5",
+        panorama: "/panos/05.jpg",
+        name: "Floor 5",
+        links: [{ nodeId: "floor3", position: { yaw: "140deg", pitch: "-30deg" } }],
+        thumbnail: "/panos/thumbs/05.jpg",
+        caption: "Floor 5",
+      },
+      {
+        id: "floor6",
+        panorama: "/panos/06.jpg",
+        name: "Floor 6",
+        links: [{ nodeId: "floor3", position: { yaw: "80deg", pitch: "-40deg" } }],
+        thumbnail: "/panos/thumbs/06.jpg",
+        caption: "Floor 6",
+      },
+    ];
+
+    // ===== Viewer wie im Doku-Beispiel =====
     const viewer = new Viewer({
       container: containerRef.current,
-      panorama: getScene(activeId).src,
-      plugins: [MarkersPlugin],
-      navbar: ["zoom", "move", "fullscreen"],
       touchmoveTwoFingers: true,
+      mousewheelCtrlKey: true,
+      defaultYaw: "130deg",
+      navbar: "zoom move gallery caption fullscreen", // Doku-Style
+      plugins: [
+        MarkersPlugin,
+        GalleryPlugin.withConfig({
+          thumbnailSize: { width: 96, height: 96 },
+        }),
+        VirtualTourPlugin.withConfig({
+          nodes,
+          startNodeId: startId,     // "floor2" wie im Beispiel
+          positionMode: "manual",   // wir nutzen yaw/pitch statt GPS
+          renderMode: "3d", 
+        }),
+      ],
+    });
+
+    // (optional) Logging wie in der Doku sinnvoll
+    const vt = viewer.getPlugin(VirtualTourPlugin);
+    vt.addEventListener("node-changed", (e: any) => {
+      // console.log("➡️ node:", e.node?.id);
+    });
+    vt.addEventListener("select-link", (e: any) => {
+      // console.log("🔗 to:", e.link?.nodeId);
     });
 
     viewerRef.current = viewer;
-
-    // Pfeile für Startszene
-    const markers = viewer.getPlugin(MarkersPlugin) as unknown as MarkersPlugin;
-    renderArrows(markers, getScene(activeId));
-
-    // Pfeil-Klicks → Szene wechseln
-    markers.addEventListener("select-marker", ({ marker }) => {
-      const targetId = marker?.data?.to as string | undefined;
-      if (!targetId) return;
-      switchScene(targetId);
-    });
-
     return () => {
       viewer.destroy();
       viewerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /** Szene wechseln + Pfeile neu setzen */
-  const switchScene = async (targetId: string) => {
-    const v = viewerRef.current;
-    if (!v) return;
-    const scene = getScene(targetId);
-    setActiveId(targetId);
-
-await v.setPanorama(scene.src, { showLoader: false, transition: { speed: 700 }  });
-    const markers = v.getPlugin(MarkersPlugin) as unknown as MarkersPlugin;
-    markers.clearMarkers();
-    renderArrows(markers, scene);
-  };
+  }, [startId]);
 
   return (
     <div
@@ -123,29 +136,4 @@ await v.setPanorama(scene.src, { showLoader: false, transition: { speed: 700 }  
       }}
     />
   );
-}
-
-/** Hilfsfunktionen */
-function getScene(id: string): Scene {
-  const s = SCENES.find((x) => x.id === id);
-  if (!s) throw new Error(`Scene not found: ${id}`);
-  return s;
-}
-
-function renderArrows(markers: MarkersPlugin, scene: Scene) {
-  scene.links.forEach((link, i) => {
-    // API akzeptiert auch Strings mit "deg" – bleibt 100% docs-konform
-    const yaw = `${link.yawDeg}deg`;
-    const pitch = `${link.pitchDeg ?? 0}deg`;
-
-    markers.addMarker({
-      id: `arrow-${scene.id}-${i}`,
-      position: { yaw, pitch },
-      tooltip: link.label ?? "Weiter",
-      html: arrowHtml(0),
-      anchor: "center",
-      size: { width: 42, height: 42 },
-      data: { to: link.to }, // Ziel-ID hier ablegen
-    });
-  });
 }
