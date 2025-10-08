@@ -1,9 +1,9 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import NewShoppingListForm from "./components/NewShoppingListForm";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from "@/shared/classes/database.types";
-import { useState } from "react";
 import { ShoppingListCard } from "./components/ShoppingListCard";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
@@ -11,36 +11,85 @@ type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
 export default function Lists() {
   const navigate = useNavigate();
   const { isAdmin, profile } = useAuth();
+
   const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadAllLists = async () => {
-    let { data: shopping_lists, error } = await supabase
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase
       .from("shopping_lists")
-      .select("*");
+      .select("*")
+      .order("created_at", { ascending: false });
 
-      setLists(shopping_lists as ShoppingList[]);
+    if (error) setError(error.message);
+    setLists(data ?? []);
+    setLoading(false);
   };
 
-  const addNewList = async (data: { listname: string; listnote: string }) => {
-    const { data: inserted, error } = await supabase
+  useEffect(() => {
+    void loadAllLists();
+  }, []);
+
+  const addNewList = async ({
+    listname,
+    listnote,
+  }: {
+    listname: string;
+    listnote: string;
+  }) => {
+    const { data, error } = await supabase
       .from("shopping_lists")
       .insert([
         {
-          name: data.listname,
-          notes: data.listnote,
-          managed_by_profile_id: profile?.id,
+          name: listname,
+          notes: listnote || null,
+          managed_by_profile_id: profile?.id ?? null,
         },
       ])
-      .select();
+      .select()
+      .single();
 
     if (error) {
-      console.log(error);
+      console.error(error);
+      setError(error.message);
+      return;
+    }
+    setLists((prev) => (data ? [data, ...prev] : prev));
+  };
+
+  // 🔴 Delete-Logik: fragt kurz nach, löscht in Supabase und aktualisiert State
+  const deleteList = async (id: string) => {
+    if (!isAdmin) return; // Sicherheitsnetz; UI blendet den Button ohnehin aus
+    const ok = window.confirm("Diese Einkaufsliste wirklich löschen?");
+    if (!ok) return;
+
+    // Optimistisches Entfernen (optional): vorher merken, falls Rollback nötig
+    const prev = lists;
+    setLists((curr) => curr.filter((l) => l.id !== id));
+
+    const { error } = await supabase
+      .from("shopping_lists")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      setError(error.message);
+      // Rollback, falls Delete fehlschlägt
+      setLists(prev);
+      return;
     }
 
-    if (inserted) {
-      console.log(data);
-    }
+    // Optional: refetchen (wenn du auf Nummer sicher gehen willst)
+    // await loadAllLists();
   };
+
+  
+const openDetails = (id: string) => navigate(`/lists/${id}/edit`);
+
 
   return (
     <>
@@ -48,12 +97,25 @@ export default function Lists() {
         <NewShoppingListForm
           onBack={() => navigate(-1)}
           onCancel={() => navigate("/home")}
-          onSave={addNewList}
+          onSave={addNewList} // <- erwartet hier { listname, listnote }
         />
       )}
-      {lists.map((list, index) => (
-        <ShoppingListCard list={list}/>
-      ))}
+
+      {loading && (
+        <p className="text-sm text-muted-foreground mt-4">Lade Listen…</p>
+      )}
+      {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+
+      <div className="mt-4 grid gap-3">
+        {lists.map((list) => (
+          <ShoppingListCard
+            key={list.id}
+            list={list}
+            onMenu={() => openDetails(list.id)}  
+            onDelete={deleteList} // 👈 Delete-Callback an Card
+          />
+        ))}
+      </div>
     </>
   );
 }

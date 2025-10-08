@@ -2,12 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Toolbar from "./common/Toolbar/Toolbar";
-import PanoViewer from "@/shared/components/PanoViewer";
+//import PanoViewer from "@/shared/components/PanoViewer";
 
 export default function Home() {
 
   return (
-    /*
     <div className="max-w-7xl mx-auto p-4 lg:p-6">
       <Toolbar/>      
 
@@ -31,12 +30,11 @@ export default function Home() {
         <div className="space-y-4">cards</div>
       </div>
     </div>
-    */
-   <>
+   /*<>
     <main style={{ maxWidth: 500, margin: "40px auto", padding: 16 }}>
       <h1>360° Viewer</h1>
-      <PanoViewer src="/panos/timothy-oldfield-luufnHoChRU-unsplash.jpg"/>
+      <PanoViewer />
     </main>
-   </>
+   </>*/
   );
 }

@@ -11,6 +11,7 @@ import { AuthProvider } from "./providers/AuthProvider.tsx";
 import Lists from "./home/common/Lists/Lists.tsx";
 import Products from "./home/common/Products/Products.tsx";
 import Billings from "./home/common/Billings/Billings.tsx";
+import ShoppingListEdit from "./home/common/Lists/components/ShoppingListEdit.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
@@ -37,9 +38,10 @@ createRoot(document.getElementById("root")!).render(
                 </RequireAdmin>
               }
             />
-            <Route path="/lists" element={<Lists/>}/>
-            <Route path="/products" element={<Products/>}/>
-            <Route path="/billings" element={<Billings/>}/>
+            <Route path="/lists" element={<Lists />} />
+            <Route path="/lists/:id/edit" element={<ShoppingListEdit />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/billings" element={<Billings />} />
           </Route>
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>

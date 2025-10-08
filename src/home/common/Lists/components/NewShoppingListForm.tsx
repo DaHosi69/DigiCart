@@ -37,7 +37,7 @@ export default function NewShoppingListForm({
   };
 
   return (
-    <div className="w-full max-w-3xl">
+    <div className="w-full ">
       <Card className="rounded-2xl shadow-sm">
         <form onSubmit={handleSubmit}>
           <CardHeader className="space-y-4">
