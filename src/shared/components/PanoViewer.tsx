@@ -22,19 +22,18 @@ type Scene = {
 
 const SCENES: Scene[] = [
   {
-    id: "room",
-    src: "/panos/kris-guico-rsB-he-ye7w-unsplash.jpg",
+    id: "floor1",
+    src: "/panos/01.jpg",
     links: [
-      { to: "hall", yawDeg: 90,  label: "Zum Flur" },
-      { to: "balcony", yawDeg: 180, label: "Zum Balkon" },
+      { to: "floor2", yawDeg: 0, label: "" },
     ],
   },
   {
-    id: "hall",
-    src: "/panos/timothy-oldfield-luufnHoChRU-unsplash.jpg",
+    id: "floor2",
+    src: "/panos/02.jpg",
     links: [
-      { to: "room", yawDeg: 270, label: "Zurück Wohnzimmer" },
-      { to: "balcony", yawDeg: 140, label: "Zum Balkon" },
+      { to: "room", yawDeg: 325},
+      { to: "floor1", yawDeg: 220},
     ],
   },
   /*{
@@ -50,7 +49,7 @@ const SCENES: Scene[] = [
 /** Einfacher runder Pfeil-Button als HTML-Marker */
 const arrowHtml = (deg: number) => `
   <div style="
-    width:42px;height:42px;border-radius:999px;background:rgba(255,255,255,.9);
+    width:50px;height:50px;border-radius:999px;background:transparent;
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 2px 10px rgba(0,0,0,.25);transform:rotate(${deg}deg);
   ">
@@ -62,7 +61,7 @@ const arrowHtml = (deg: number) => `
 
 type Props = { initialId?: string; width?: string; height?: string };
 
-export default function PanoViewer({ initialId = "room", width = "100%", height = "70vh" }: Props) {
+export default function PanoViewer({ initialId = "floor1", width = "100%", height = "70vh" }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const [activeId, setActiveId] = useState(initialId);
@@ -143,7 +142,7 @@ function renderArrows(markers: MarkersPlugin, scene: Scene) {
       id: `arrow-${scene.id}-${i}`,
       position: { yaw, pitch },
       tooltip: link.label ?? "Weiter",
-      html: arrowHtml(link.yawDeg),
+      html: arrowHtml(0),
       anchor: "center",
       size: { width: 42, height: 42 },
       data: { to: link.to }, // Ziel-ID hier ablegen
