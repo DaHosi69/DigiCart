@@ -88,7 +88,7 @@ export default function NewShoppingListForm({
             </div>
           </CardContent>
 
-          <CardFooter className="flex justify-end gap-3">
+          <CardFooter className="flex justify-end gap-3 mt-3">
             <Button
               type="button"
               variant="secondary"

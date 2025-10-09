@@ -11,6 +11,7 @@ import {
   Archive,
   ChevronRight,
   Trash2,
+  Edit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
@@ -116,7 +117,7 @@ export function ShoppingListCard({
               }}
               aria-label="Menü"
             >
-              <MoreVertical className="h-5 w-5" />
+              <Edit className="h-5 w-5" />
             </Button>
           </div>
         </div>

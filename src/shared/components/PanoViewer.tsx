@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import "@photo-sphere-viewer/core/index.css";
 import "@photo-sphere-viewer/virtual-tour-plugin/index.css";
+// Falls dieser Pfad bei dir nicht existiert, einfach auskommentieren:
 import "@photo-sphere-viewer/gallery-plugin/index.css";
 
 import { Viewer } from "@photo-sphere-viewer/core";
@@ -23,19 +24,15 @@ export default function PanoViewerVT({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // ===== deine Nodes (aus deinen SCENES) =====
+    // ===== Szenen-Definition =====
     const nodes = [
       {
         id: "floor1",
         panorama: "/panos/01.jpg",
         name: "Floor 1",
-        // Pfeil von 1 -> 2 (nach vorne, leicht nach unten)
         links: [{ nodeId: "floor2", position: { yaw: "0deg", pitch: "-30deg" } }],
-        // optional, wenn du bereits Marker hast:
-        // markers: [{ id:'m1', position:{ yaw:'45deg', pitch:'0deg' }, tooltip:'Info' }],
-        thumbnail: "/panos/thumbs/01.jpg", // optional
+        thumbnail: "/panos/thumbs/01.jpg",
         caption: "Floor 1",
-        sphereCorrection: { pan: "0deg" }, // optional
       },
       {
         id: "floor2",
@@ -87,34 +84,51 @@ export default function PanoViewerVT({
       },
     ];
 
-    // ===== Viewer wie im Doku-Beispiel =====
+    // ===== kleine Helpers fürs Preloading =====
+    const getNode = (id: string) => nodes.find((n) => n.id === id);
+    const preloadImage = (url: string) => {
+      const img = new Image();
+      img.decoding = "async";
+      img.loading = "eager";
+      img.src = url;
+      img.decode?.().catch(() => {}); // Fehler egal – Browser cached trotzdem
+      return img;
+    };
+
+    // ===== Viewer Setup =====
     const viewer = new Viewer({
       container: containerRef.current,
       touchmoveTwoFingers: true,
       mousewheelCtrlKey: true,
-      defaultYaw: "130deg",
-      navbar: "zoom move gallery caption fullscreen", // Doku-Style
+      defaultYaw: "130deg", // Spinner ausblenden
+      navbar: "zoom move gallery caption fullscreen",
       plugins: [
         MarkersPlugin,
-        GalleryPlugin.withConfig({
-          thumbnailSize: { width: 96, height: 96 },
-        }),
+        GalleryPlugin.withConfig({ thumbnailSize: { width: 96, height: 96 } }),
         VirtualTourPlugin.withConfig({
           nodes,
-          startNodeId: startId,     // "floor2" wie im Beispiel
-          positionMode: "manual",   // wir nutzen yaw/pitch statt GPS
-          renderMode: "3d", 
+          startNodeId: startId,
+          positionMode: "manual",
+          renderMode: "3d",
         }),
       ],
     });
 
-    // (optional) Logging wie in der Doku sinnvoll
     const vt = viewer.getPlugin(VirtualTourPlugin);
-    vt.addEventListener("node-changed", (e: any) => {
-      // console.log("➡️ node:", e.node?.id);
+
+    // ==== PRELOAD: beim Start gleich die Nachbarn des Startknotens laden ====
+    const startNode = getNode(startId);
+    startNode?.links?.forEach((l) => {
+      const t = getNode(l.nodeId);
+      if (t?.panorama) preloadImage(t.panorama);
     });
-    vt.addEventListener("select-link", (e: any) => {
-      // console.log("🔗 to:", e.link?.nodeId);
+
+    // ==== PRELOAD: nach jedem Szenenwechsel die Nachbarn vorladen ====
+    vt.addEventListener("node-changed", ({ node }: any) => {
+      node?.links?.forEach((link: any) => {
+        const target = getNode(link.nodeId);
+        if (target?.panorama) preloadImage(target.panorama);
+      });
     });
 
     viewerRef.current = viewer;

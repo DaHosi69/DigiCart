@@ -96,7 +96,7 @@ export default function ShoppingListEdit() {
   if (error) return <div className="p-4 text-sm text-red-600">{error}</div>;
 
   return (
-    <div className="w-full max-w-3xl">
+    <div className="w-full">
       <Card className="rounded-2xl shadow-sm">
         <CardHeader className="flex flex-row items-center gap-3">
           <Button
