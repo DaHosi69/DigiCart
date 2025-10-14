@@ -1,5 +1,5 @@
 // src/home/Home.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/providers/AuthProvider";
 import type { Database } from "@/shared/classes/database.types";
@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ListDetail from "./common/Toolbar/ListDetail";
+import Toolbar from "./common/Toolbar/Toolbar";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"];
@@ -15,19 +16,29 @@ type ListItemInsert = Tables["list_items"]["Insert"];
 type Order = Tables["orders"]["Row"];
 type OrderInsert = Tables["orders"]["Insert"];
 
+type SelectedMap = Record<
+  string, // product_id
+  { product: Product; qty: number }
+>;
+
 export default function Home() {
   const { profile } = useAuth();
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [activeList, setActiveList] = useState<ShoppingList | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Mehrfachauswahl + Menge
+  const [selected, setSelected] = useState<SelectedMap>({});
+
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderName, setOrderName] = useState("");
 
-  // Aktive Listen + Produkte laden
+  // Refresh-Trigger für ListDetail
+  const [listRefresh, setListRefresh] = useState(0);
+
   useEffect(() => {
     const loadAll = async () => {
       setLoading(true);
@@ -58,26 +69,39 @@ export default function Home() {
     void loadAll();
   }, []);
 
-  // Offene Order für Liste + Person holen/erstellen (mit ordered_by_name)
-  const upsertOpenOrder = async (listId: string, profileId: string, name: string): Promise<Order> => {
-    const { data: existing, error: e1 } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("list_id", listId)
-      .eq("created_by_profile_id", profileId)
-      .eq("status", "open" as Database["public"]["Enums"]["order_status"])
-      .maybeSingle<Order>();
-
-    if (e1 && e1.code !== "PGRST116") throw e1;
-    if (existing) {
-      // Falls noch kein Name gesetzt und jetzt einer vorhanden ist → updaten
-      const normalized = name.trim();
-      if (!existing.ordered_by_name && normalized) {
-        await supabase.from("orders").update({ ordered_by_name: normalized }).eq("id", existing.id);
+  // Auswahl toggeln
+  const toggleProduct = (p: Product) => {
+    setSelected((prev) => {
+      const next = { ...prev };
+      if (next[p.id]) {
+        delete next[p.id];
+      } else {
+        next[p.id] = { product: p, qty: 1 };
       }
-      return existing;
-    }
+      return next;
+    });
+  };
 
+  // Menge ändern
+  const changeQty = (productId: string, qty: number) => {
+    setSelected((prev) => {
+      if (!prev[productId]) return prev;
+      const safe = Math.max(1, Math.min(9999, Math.floor(qty || 1)));
+      return { ...prev, [productId]: { ...prev[productId], qty: safe } };
+    });
+  };
+
+  const totalSelected = useMemo(
+    () => Object.values(selected).reduce((sum, s) => sum + s.qty, 0),
+    [selected]
+  );
+
+  // Immer NEUE Order anlegen (kein Upsert)
+  const createOrder = async (
+    listId: string,
+    profileId: string,
+    name: string
+  ): Promise<Order> => {
     const payload: OrderInsert = {
       list_id: listId,
       created_by_profile_id: profileId,
@@ -85,27 +109,31 @@ export default function Home() {
       currency_code: "EUR",
       total_amount: 0,
       ordered_by_name: name.trim(),
-      payer_name: name.trim(),
+      payer_name: name.trim() || null,
       purchased_at: null,
     };
 
-    const { data: created, error: e2 } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .insert(payload)
       .select("*")
       .single();
 
-    if (e2) throw e2;
-    return created!;
+    if (error) throw error;
+    return data!;
   };
 
-  // Produkt zur aktiven Liste hinzufügen -> NUR list_items + (Order anlegen/aktualisieren)
-  const addSelectedToList = async () => {
-    if (!activeList || !selectedProduct || !profile?.id) return;
-    
+  // Produkte gesammelt hinzufügen
+  const addBatchToList = async () => {
+    if (!activeList || !profile?.id) return;
+
     const normalizedName = orderName.trim();
     if (!normalizedName) {
       alert("Bitte den Namen der bestellenden Person angeben.");
+      return;
+    }
+    if (Object.keys(selected).length === 0) {
+      alert("Bitte mindestens ein Produkt auswählen.");
       return;
     }
 
@@ -113,22 +141,24 @@ export default function Home() {
     setError(null);
 
     try {
-      // 1) Order sicherstellen (mit ordered_by_name)
-      await upsertOpenOrder(activeList.id, profile.id, normalizedName);
+      // 1) neue Order erzeugen (pro Klick genau eine)
+      await createOrder(activeList.id, profile.id, normalizedName);
 
-      // 2) list_items: immer neuen Eintrag anlegen (Duplikate erlaubt)
-      const liPayload: ListItemInsert = {
+      // 2) list_items in einem Rutsch einfügen
+      const inserts: ListItemInsert[] = Object.values(selected).map((s) => ({
         list_id: activeList.id,
-        product_id: selectedProduct.id,
-        quantity: 1,
+        product_id: s.product.id,
+        quantity: s.qty,
         note: null,
-        added_at: undefined, // DB-Default (now()) nutzen, falls gesetzt
-      };
-      const { error: liErr } = await supabase.from("list_items").insert(liPayload);
+        added_at: undefined, // DB-Default
+      }));
+
+      const { error: liErr } = await supabase.from("list_items").insert(inserts);
       if (liErr) throw liErr;
 
-      // optional: Auswahl zurücksetzen
-      // setSelectedProduct(null);
+      // 3) UI aktualisieren
+      setSelected({});
+      setListRefresh((v) => v + 1);
     } catch (e: any) {
       setError(e?.message ?? "Fehler beim Hinzufügen");
     } finally {
@@ -141,7 +171,8 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 lg:p-6">
-      <div className="mt-2 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 lg:gap-6">
+      <Toolbar/>
+      <div className="mt-2 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6">
         {/* Linke Spalte: aktive Listen + Item-Ansicht */}
         <Card>
           <CardContent className="p-4">
@@ -150,7 +181,11 @@ export default function Home() {
                 <Button
                   key={l.id}
                   variant={activeList?.id === l.id ? "default" : "secondary"}
-                  onClick={() => setActiveList(l)}
+                  onClick={() => {
+                    setActiveList(l);
+                    setSelected({});
+                    setListRefresh((v) => v + 1);
+                  }}
                 >
                   {l.name}
                 </Button>
@@ -158,17 +193,19 @@ export default function Home() {
             </div>
 
             {activeList ? (
-              <ListDetail listId={activeList.id} />
+              <ListDetail listId={activeList.id}  />
             ) : (
-              <div className="text-sm text-muted-foreground">Keine aktive Liste ausgewählt.</div>
+              <div className="text-sm text-muted-foreground">
+                Keine aktive Liste ausgewählt.
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Rechte Spalte: Produktkatalog + Besteller-Name + Add */}
+        {/* Rechte Spalte: Produktkatalog + Besteller-Name + Batch-Add */}
         <Card>
           <CardContent className="p-4 space-y-3">
-            <div className="text-sm font-medium">Produkte</div>
+            <div className="text-sm font-medium">Produkte auswählen</div>
 
             {/* Name der bestellenden Person */}
             <div className="space-y-1">
@@ -183,28 +220,75 @@ export default function Home() {
               />
             </div>
 
+            {/* Produktliste mit Auswahl + Mengensteuerung */}
             <div className="grid gap-2">
-              {products.map((p) => (
-                <Button
-                  key={p.id}
-                  variant={selectedProduct?.id === p.id ? "default" : "outline"}
-                  className="justify-between"
-                  onClick={() => setSelectedProduct(p)}
-                >
-                  <span className="truncate">{p.name}</span>
-                  <span className="text-xs opacity-75">
-                    {(Number(p.price ?? 0)).toFixed(2)} {p.currency_code ?? "EUR"}
-                  </span>
-                </Button>
-              ))}
+              {products.map((p) => {
+                const sel = selected[p.id];
+                const isActive = !!sel;
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-2 border rounded-md p-2"
+                  >
+                    <Button
+                      variant={isActive ? "default" : "outline"}
+                      onClick={() => toggleProduct(p)}
+                      className="min-w-28 justify-between"
+                    >
+                      <span className="truncate">{p.name}</span>
+                      <span className="text-xs opacity-75">
+                        {(Number(p.price ?? 0)).toFixed(2)} {p.currency_code ?? "EUR"}
+                      </span>
+                    </Button>
+
+                    {/* Menge (sichtbar, wenn ausgewählt) */}
+                    {isActive && (
+                      <div className="ml-auto flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="secondary"
+                          onClick={() => changeQty(p.id, (sel.qty ?? 1) - 1)}
+                          aria-label="Menge verringern"
+                        >
+                          −
+                        </Button>
+                        <Input
+                          type="number"
+                          value={sel.qty}
+                          onChange={(e) => changeQty(p.id, Number(e.target.value))}
+                          className="w-16 text-center"
+                          min={1}
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="secondary"
+                          onClick={() => changeQty(p.id, (sel.qty ?? 1) + 1)}
+                          aria-label="Menge erhöhen"
+                        >
+                          +
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <Button
               className="w-full"
-              onClick={addSelectedToList}
-              disabled={!activeList || !selectedProduct || adding}
+              onClick={addBatchToList}
+              disabled={!activeList || adding || Object.keys(selected).length === 0}
+              title={
+                Object.keys(selected).length === 0
+                  ? "Bitte Produkte auswählen"
+                  : undefined
+              }
             >
-              {adding ? "Wird hinzugefügt…" : "Zur Liste hinzufügen"}
+              {adding
+                ? "Wird hinzugefügt…"
+                : `Zur Liste hinzufügen (${totalSelected} Artikel)`}
             </Button>
           </CardContent>
         </Card>
@@ -212,13 +296,3 @@ export default function Home() {
     </div>
   );
 }
-
-
-
-
- /*<>
-    <main style={{ maxWidth: 700, margin: "40px auto", padding: 16 }}>
-      <h1>360° Viewer</h1>
-      <PanoViewer />
-    </main>
-   </>*/

@@ -8,7 +8,7 @@ import { Settings, Sun, Moon } from "lucide-react";
 export default function Toolbar() {
   const { dark, toggleDark } = useTheme();
   return (
-    <>
+    <div className="mb-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">Einkauf</h1>
@@ -34,6 +34,6 @@ export default function Toolbar() {
         </div>
         <div />
       </div>
-    </>
+    </div>
   );
 }
