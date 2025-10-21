@@ -16,10 +16,7 @@ type ListItemInsert = Tables["list_items"]["Insert"];
 type Order = Tables["orders"]["Row"];
 type OrderInsert = Tables["orders"]["Insert"];
 
-type SelectedMap = Record<
-  string, // product_id
-  { product: Product; qty: number }
->;
+type SelectedMap = Record<string, { product: Product; qty: number }>;
 
 export default function Home() {
   const { profile } = useAuth();
@@ -28,13 +25,15 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [activeList, setActiveList] = useState<ShoppingList | null>(null);
 
-  // Mehrfachauswahl + Menge
   const [selected, setSelected] = useState<SelectedMap>({});
 
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderName, setOrderName] = useState("");
+
+  // 🆕 Suchbegriff für Produkte
+  const [productSearch, setProductSearch] = useState<string>("");
 
   // Refresh-Trigger für ListDetail
   const [listRefresh, setListRefresh] = useState(0);
@@ -44,18 +43,21 @@ export default function Home() {
       setLoading(true);
       setError(null);
 
-      const [{ data: ls, error: e1 }, { data: ps, error: e2 }] = await Promise.all([
-        supabase
-          .from("shopping_lists")
-          .select("id,name,is_active,notes,managed_by_profile_id,created_at")
-          .eq("is_active", true)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("products")
-          .select("id,name,price,currency_code,category_id,unit,created_at,is_active")
-          .eq("is_active", true)
-          .order("created_at", { ascending: false }),
-      ]);
+      const [{ data: ls, error: e1 }, { data: ps, error: e2 }] =
+        await Promise.all([
+          supabase
+            .from("shopping_lists")
+            .select("id,name,is_active,notes,managed_by_profile_id,created_at")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("products")
+            .select(
+              "id,name,price,currency_code,category_id,unit,created_at,is_active"
+            )
+            .eq("is_active", true)
+            .order("created_at", { ascending: false }),
+        ]);
 
       if (e1) setError(e1.message);
       if (e2) setError(e2.message);
@@ -68,6 +70,13 @@ export default function Home() {
 
     void loadAll();
   }, []);
+
+  // 🆕 Gefilterte Produkte (case-insensitive)
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => (p.name ?? "").toLowerCase().includes(q));
+  }, [productSearch, products]);
 
   // Auswahl toggeln
   const toggleProduct = (p: Product) => {
@@ -96,12 +105,14 @@ export default function Home() {
     [selected]
   );
 
-  // Immer NEUE Order anlegen (kein Upsert)
+  // Immer NEUE Order anlegen
   const createOrder = async (
     listId: string,
     profileId: string,
     name: string
   ): Promise<Order> => {
+    console.log(name);
+    
     const payload: OrderInsert = {
       list_id: listId,
       created_by_profile_id: profileId,
@@ -126,7 +137,8 @@ export default function Home() {
   // Produkte gesammelt hinzufügen
   const addBatchToList = async () => {
     if (!activeList || !profile?.id) return;
-
+    console.log(orderName);
+    
     const normalizedName = orderName.trim();
     if (!normalizedName) {
       alert("Bitte den Namen der bestellenden Person angeben.");
@@ -141,22 +153,21 @@ export default function Home() {
     setError(null);
 
     try {
-      // 1) neue Order erzeugen (pro Klick genau eine)
       await createOrder(activeList.id, profile.id, normalizedName);
 
-      // 2) list_items in einem Rutsch einfügen
       const inserts: ListItemInsert[] = Object.values(selected).map((s) => ({
         list_id: activeList.id,
         product_id: s.product.id,
         quantity: s.qty,
         note: null,
-        added_at: new Date().toISOString(), 
+        added_at: new Date().toISOString(),
       }));
 
-      const { error: liErr } = await supabase.from("list_items").insert(inserts);
+      const { error: liErr } = await supabase
+        .from("list_items")
+        .insert(inserts);
       if (liErr) throw liErr;
 
-      // 3) UI aktualisieren
       setSelected({});
       setListRefresh((v) => v + 1);
     } catch (e: any) {
@@ -166,17 +177,18 @@ export default function Home() {
     }
   };
 
-  if (loading) return <div className="p-4 text-sm text-muted-foreground">Lade…</div>;
+  if (loading)
+    return <div className="p-4 text-sm text-muted-foreground">Lade…</div>;
   if (error) return <div className="p-4 text-sm text-red-600">{error}</div>;
 
   return (
     <div className="max-w-7xl mx-auto p-4 lg:p-6">
-      <Toolbar/>
+      <Toolbar />
       <div className="mt-2 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6">
-        {/* Linke Spalte: aktive Listen + Item-Ansicht */}
+        {/* Linke Spalte */}
         <Card>
           <CardContent className="p-4">
-            <div className="mb-4 flex gap-2 overflow-x-auto">
+            <div className="mb-4 mt-4 flex gap-2 overflow-x-auto">
               {lists.map((l) => (
                 <Button
                   key={l.id}
@@ -193,7 +205,7 @@ export default function Home() {
             </div>
 
             {activeList ? (
-              <ListDetail listId={activeList.id}  />
+              <ListDetail listId={activeList.id} />
             ) : (
               <div className="text-sm text-muted-foreground">
                 Keine aktive Liste ausgewählt.
@@ -202,33 +214,37 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Rechte Spalte: Produktkatalog + Besteller-Name + Batch-Add */}
+        {/* Rechte Spalte */}
         <Card>
           <CardContent className="p-4 space-y-3">
-            <div className="text-sm font-medium">Produkte auswählen</div>
-
-            {/* Name der bestellenden Person */}
+            {/* Produkt-Suche (steuert rechte Spalte) */}
             <div className="space-y-1">
-              <label htmlFor="order-name" className="text-xs opacity-80">
-                Name der bestellenden Person
+              <label htmlFor="product-search" className="text-l font-medium">
+                Produkt Suchen
               </label>
               <Input
-                id="order-name"
-                value={orderName}
-                onChange={(e) => setOrderName(e.target.value)}
-                placeholder="z. B. Max Mustermann"
+                id="product-search"
+                placeholder="z. B. Cola, Käse, Brot…"
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
               />
             </div>
+            <div className="text-sm font-medium">Produkte auswählen</div>
 
-            {/* Produktliste mit Auswahl + Mengensteuerung */}
-            <div className="grid gap-2">
-              {products.map((p) => {
+            <div className="grid gap-2 max-h-40 overflow-y-auto pr-1">
+              {filteredProducts.length === 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Keine Produkte gefunden.
+                </div>
+              )}
+
+              {filteredProducts.map((p) => {
                 const sel = selected[p.id];
                 const isActive = !!sel;
                 return (
                   <div
                     key={p.id}
-                    className="flex items-center gap-2 border rounded-md p-2"
+                    className="flex items-center gap-2 rounded-md p-2"
                   >
                     <Button
                       variant={isActive ? "default" : "outline"}
@@ -237,11 +253,11 @@ export default function Home() {
                     >
                       <span className="truncate">{p.name}</span>
                       <span className="text-xs opacity-75">
-                        {(Number(p.price ?? 0)).toFixed(2)} {p.currency_code ?? "EUR"}
+                        {Number(p.price ?? 0).toFixed(2)}{" "}
+                        {p.currency_code ?? "EUR"}
                       </span>
                     </Button>
 
-                    {/* Menge (sichtbar, wenn ausgewählt) */}
                     {isActive && (
                       <div className="ml-auto flex items-center gap-2">
                         <Button
@@ -256,8 +272,10 @@ export default function Home() {
                         <Input
                           type="number"
                           value={sel.qty}
-                          onChange={(e) => changeQty(p.id, Number(e.target.value))}
-                          className="w-16 text-center"
+                          onChange={(e) =>
+                            changeQty(p.id, Number(e.target.value))
+                          }
+                          className="w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           min={1}
                         />
                         <Button
@@ -276,10 +294,25 @@ export default function Home() {
               })}
             </div>
 
+            {/* Name der bestellenden Person */}
+            <div className="space-y-1">
+              <label htmlFor="order-name" className="text-xs opacity-80">
+                Name der bestellenden Person
+              </label>
+              <Input
+                id="order-name"
+                value={orderName}
+                onChange={(e) => setOrderName(e.target.value)}
+                placeholder="z. B. Max Mustermann"
+              />
+            </div>
+
             <Button
               className="w-full"
               onClick={addBatchToList}
-              disabled={!activeList || adding || Object.keys(selected).length === 0}
+              disabled={
+                !activeList || adding || Object.keys(selected).length === 0
+              }
               title={
                 Object.keys(selected).length === 0
                   ? "Bitte Produkte auswählen"
