@@ -160,7 +160,6 @@ export default function Home() {
         product_id: s.product.id,
         quantity: s.qty,
         note: null,
-        added_at: new Date().toISOString(),
       }));
 
       const { error: liErr } = await supabase
