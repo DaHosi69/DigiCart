@@ -204,7 +204,7 @@ export default function Home() {
             </div>
 
             {activeList ? (
-              <ListDetail listId={activeList.id} />
+              <ListDetail listId={activeList.id} refreshKey={listRefresh} />
             ) : (
               <div className="text-sm text-muted-foreground">
                 Keine aktive Liste ausgewählt.

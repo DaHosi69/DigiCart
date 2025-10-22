@@ -1,5 +1,5 @@
 // src/home/common/Toolbar/ListDetail.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
@@ -18,35 +18,72 @@ type ViewRow = {
   ordered_by_name: string | null;
 };
 
-export default function ListDetail({ listId }: { listId: string }) {
+type Props = { listId: string; refreshKey?: number };
+
+export default function ListDetail({ listId, refreshKey = 0 }: Props) {
   const [rows, setRows] = useState<ViewRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const { isAdmin } = useAuth();
 
-  // Daten laden aus der View v_list_items_with_order
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      setErr(null);
-      const { data, error } = await supabase
-        .from("v_list_items_with_order")
-        .select("*")
-        .eq("list_id", listId)
-        .order("added_at", { ascending: false });
+  // --- 1) Fetch als Callback (wird von Realtime getriggert) ---
+  const fetchRows = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    const { data, error } = await supabase
+      .from("v_list_items_with_order")
+      .select("*")
+      .eq("list_id", listId)
+      .order("added_at", { ascending: false });
 
-      if (!mounted) return;
-      if (error) setErr(error.message);
-      setRows((data as ViewRow[]) ?? []);
-      setLoading(false);
-    })();
-    return () => {
-      mounted = false;
-    };
+    if (error) setErr(error.message);
+    setRows((data as ViewRow[]) ?? []);
+    setLoading(false);
   }, [listId]);
 
-  // Nach Kategorie gruppieren
+  // --- 2) Initial/refreshKey Load ---
+  useEffect(() => {
+    void fetchRows();
+  }, [fetchRows, refreshKey]);
+
+  // --- 3) Realtime-Subscription + Debounce gegen Event-Flut ---
+  const debounceRef = useRef<number | null>(null);
+  const scheduleFetch = useCallback(() => {
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      debounceRef.current = null;
+      void fetchRows();
+    }, 150); // 150ms debounce
+  }, [fetchRows]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`list_items:${listId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "list_items",
+          filter: `list_id=eq.${listId}`,
+        },
+        () => {
+          // Bei INSERT/UPDATE/DELETE neu laden (debounced)
+          scheduleFetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
+  }, [listId, scheduleFetch]);
+
+  // --- Gruppierung nach Kategorie ---
   const byCategory = useMemo(() => {
     const map = new Map<string, ViewRow[]>();
     for (const r of rows) {
@@ -54,7 +91,6 @@ export default function ListDetail({ listId }: { listId: string }) {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
     }
-    // In jeder Kategorie optional nach added_at absteigend sortieren
     for (const [, arr] of map) {
       arr.sort((a, b) => {
         const ta = a.added_at ? Date.parse(a.added_at) : 0;
@@ -62,7 +98,6 @@ export default function ListDetail({ listId }: { listId: string }) {
         return tb - ta;
       });
     }
-    // alphabetisch nach Kategorie
     return Array.from(map.entries()).sort((a, b) =>
       a[0].localeCompare(b[0], undefined, { sensitivity: "base" })
     );
@@ -76,12 +111,12 @@ export default function ListDetail({ listId }: { listId: string }) {
       alert(error.message);
       return;
     }
+    // lokal optimistisch entfernen – Realtime refetcht zusätzlich
     setRows((prev) => prev.filter((r) => r.list_item_id !== listItemId));
   };
 
   if (loading) return <div className="text-sm text-muted-foreground">Lade Listeneinträge…</div>;
   if (err) return <div className="text-sm text-red-600">{err}</div>;
-
   if (rows.length === 0) {
     return <div className="text-sm text-muted-foreground">Noch keine Produkte in dieser Liste.</div>;
   }
@@ -101,9 +136,7 @@ export default function ListDetail({ listId }: { listId: string }) {
             >
               <div className="truncate">{it.product_name}</div>
 
-              <div className="text-xs opacity-70">
-                x {it.quantity ?? 1}
-              </div>
+              <div className="text-xs opacity-70">x {it.quantity ?? 1}</div>
 
               <div className="ml-auto text-xs opacity-70">
                 {it.ordered_by_name?.trim() || "—"}
@@ -123,7 +156,7 @@ export default function ListDetail({ listId }: { listId: string }) {
                 >
                   <Trash2 className="h-5 w-5" />
                 </Button>
-              )}
+              )} 
             </div>
           ))}
         </div>
