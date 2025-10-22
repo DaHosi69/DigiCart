@@ -81,7 +81,7 @@ export default function Products() {
 
   return (
     <>
-      {isAdmin && <NewProductForm onSave={addNew} />}
+      <NewProductForm onSave={addNew} />
 
       {loading && (
         <p className="text-sm text-muted-foreground mt-4">Lade Produkte…</p>

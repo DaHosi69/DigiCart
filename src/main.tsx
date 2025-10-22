@@ -30,7 +30,7 @@ createRoot(document.getElementById("root")!).render(
             }
           >
             <Route path="/home" element={<Home />} />
-            <Route path="/home/settings" element={<AppSettings />} />
+            {/* <Route path="/home/settings" element={<AppSettings />} /> */}
             <Route
               path="/home/admin"
               element={
@@ -42,8 +42,15 @@ createRoot(document.getElementById("root")!).render(
             <Route path="/lists" element={<Lists />} />
             <Route path="/lists/:id/edit" element={<ShoppingListEdit />} />
             <Route path="/products" element={<Products />} />
-            <Route path="/products/:id/edit" element={<ProductEdit/>} />
-            <Route path="/billings" element={<Billings />} />
+            <Route path="/products/:id/edit" element={<ProductEdit />} />
+            <Route
+              path="/billings"
+              element={
+                <RequireAdmin>
+                  <Billings />
+                </RequireAdmin>
+              }
+            />
           </Route>
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>

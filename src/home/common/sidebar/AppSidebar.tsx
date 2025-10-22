@@ -13,6 +13,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/providers/AuthProvider";
 
 // Menu items.
 const items = [
@@ -35,12 +36,13 @@ const items = [
     title: "Abrechungen",
     url: "/billings",
     icon: Wallet,
+    adminOnly: true,
   },
-  {
+ /* {
     title: "Einstellungen",
     url: "/home/settings",
     icon: Settings,
-  },
+  },*/
 ];
 
 export default function AppSidebar() {
@@ -57,6 +59,8 @@ export default function AppSidebar() {
     navigate("/login", { replace: true });
   };
 
+  const { isAdmin } = useAuth(); 
+
   return (
     <Sidebar className="transition-colors duration-500">
       <SidebarContent className="transition-colors duration-500">
@@ -64,7 +68,9 @@ export default function AppSidebar() {
           <SidebarGroupLabel>DigiCart</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="transition-colors duration-500">
-              {items.map((item) => (
+             {items
+                .filter((item) => !item.adminOnly || isAdmin) // 👈 filtern
+                .map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} onClick={closeSidebar}>

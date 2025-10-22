@@ -15,9 +15,9 @@ export default function Toolbar() {
           <Badge variant="secondary">Liste: Wocheneinkauf</Badge>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
+          {/* <Button variant="ghost" size="icon">
             <Settings className="h-6 w-6" />
-          </Button>
+          </Button> */}
           <Sun className="h-5 w-5" />
           <Switch
             checked={dark} 
