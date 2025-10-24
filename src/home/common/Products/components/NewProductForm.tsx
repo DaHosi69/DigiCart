@@ -74,9 +74,10 @@ export default function NewProductForm({
           <div className="space-y-2">
             <Label htmlFor="price">Preis (EUR)</Label>
             <Input id="price" type="number" step="0.01" min="0" value={price} onChange={(e)=>setPrice(e.target.value)} />
+            <Label className="text-xs opacity-70">der Preis muss nicht angegeben werden</Label>
           </div>
         </CardContent>
-        <CardFooter className="justify-end">
+        <CardFooter className="justify-end mt-3">
           <Button type="submit" className="gap-2">
             <Save className="h-4 w-4" /> Speichern
           </Button>

@@ -22,7 +22,7 @@ export default function Products() {
   const loadAll = async () => {
     setLoading(true);
     setError(null);
-   
+
     await Promise.all([loadProducts(), loadCategories()]);
 
     setLoading(false);
@@ -87,8 +87,9 @@ export default function Products() {
         <p className="text-sm text-muted-foreground mt-4">Lade Produkte…</p>
       )}
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-
-      <div className="mt-4 grid gap-3">
+      <div
+        className="mt-4 grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+      >
         {products.map((product) => (
           <ProductCard
             categories={categories}

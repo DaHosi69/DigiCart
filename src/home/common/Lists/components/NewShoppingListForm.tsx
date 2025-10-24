@@ -42,17 +42,6 @@ export default function NewShoppingListForm({
         <form onSubmit={handleSubmit}>
           <CardHeader className="space-y-4">
             <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                onClick={onBack}
-                aria-label="Zurück"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-
               <CardTitle className="text-2xl font-semibold">
                 Neue Einkaufsliste
               </CardTitle>

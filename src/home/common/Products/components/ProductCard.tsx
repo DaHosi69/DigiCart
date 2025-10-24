@@ -61,11 +61,6 @@ export function ProductCard({
                 </Button>
               </>
             )}
-            {!isAdmin && (
-              <Button variant="ghost" size="icon" aria-label="Details">
-                <MoreVertical className="h-5 w-5" />
-              </Button>
-            )}
           </div>
         </div>
 
