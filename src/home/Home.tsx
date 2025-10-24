@@ -203,6 +203,7 @@ export default function Home() {
                 />
               ))}
             </div>
+            <hr/>
 
             {activeList ? (
               <ListDetail listId={activeList.id} refreshKey={listRefresh} />

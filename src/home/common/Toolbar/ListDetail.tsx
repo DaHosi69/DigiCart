@@ -118,7 +118,7 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
   if (loading) return <div className="text-sm text-muted-foreground">Lade Listeneinträge…</div>;
   if (err) return <div className="text-sm text-red-600">{err}</div>;
   if (rows.length === 0) {
-    return <div className="text-sm text-muted-foreground">Noch keine Produkte in dieser Liste.</div>;
+    return <div className="text-sm flex justify-center text-muted-foreground">Noch keine Produkte in dieser Liste.</div>;
   }
 
   return (
