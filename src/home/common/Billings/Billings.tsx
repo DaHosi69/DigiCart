@@ -335,8 +335,8 @@ export default function Billings() {
                         <Badge variant="secondary" className="truncate">
                           {name}
                         </Badge>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {t.count} Posten
+                        <span className="hidden md:block text-xs text-muted-foreground whitespace-nowrap">
+                          {t.count} Produkte
                         </span>
                       </div>
 

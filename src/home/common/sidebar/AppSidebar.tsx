@@ -75,7 +75,7 @@ export default function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} onClick={closeSidebar}>
                       <item.icon />
-                      <span>{item.title}</span>
+                      <span className="text-lg md:text-base">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -84,7 +84,7 @@ export default function AppSidebar() {
                 <SidebarMenuButton asChild>
                   <a onClick={handleLogout}>
                     <LogOut />
-                    <span>Abmelden</span>
+                    <span className="text-lg md:text-base">Abmelden</span>
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>

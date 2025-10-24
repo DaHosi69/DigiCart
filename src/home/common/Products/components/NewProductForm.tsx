@@ -51,9 +51,11 @@ export default function NewProductForm({
     <Card className="rounded-2xl shadow-sm">
       <form onSubmit={handleSubmit}>
         <CardHeader>
-          <CardTitle>Neues Produkt</CardTitle>
+          <CardTitle className="text-2xl font-semibold">
+                Neues Produkt
+              </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 sm:grid-cols-4">
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="prod-name">Name</Label>
             <Input id="prod-name" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -62,16 +64,11 @@ export default function NewProductForm({
           <div className="space-y-2">
             <Label>Kategorie</Label>
             <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger><SelectValue placeholder="Kategorie wählen" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Kategorie wählen" /></SelectTrigger>
               <SelectContent>
                 {categories.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="unit">Einheit</Label>
-            <Input id="unit" value={unit} onChange={(e)=>setUnit(e.target.value)} placeholder="z. B. Stk, Flasche, kg" />
           </div>
 
           <div className="space-y-2">

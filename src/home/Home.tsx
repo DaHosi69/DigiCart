@@ -181,7 +181,7 @@ export default function Home() {
   if (error) return <div className="p-4 text-sm text-red-600">{error}</div>;
 
   return (
-    <div className="max-w-7xl mx-auto p-4 lg:p-6">
+    <>
       <Toolbar />
       <div className="mt-2 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6">
         {/* Linke Spalte */}
@@ -325,6 +325,6 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </>
   );
 }
