@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ListDetail from "./common/Toolbar/ListDetail";
 import Toolbar from "./common/Toolbar/Toolbar";
+import ListCard from "./common/Toolbar/ListCard";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"];
@@ -112,7 +113,7 @@ export default function Home() {
     name: string
   ): Promise<Order> => {
     console.log(name);
-    
+
     const payload: OrderInsert = {
       list_id: listId,
       created_by_profile_id: profileId,
@@ -138,7 +139,7 @@ export default function Home() {
   const addBatchToList = async () => {
     if (!activeList || !profile?.id) return;
     console.log(orderName);
-    
+
     const normalizedName = orderName.trim();
     if (!normalizedName) {
       alert("Bitte den Namen der bestellenden Person angeben.");
@@ -187,19 +188,19 @@ export default function Home() {
         {/* Linke Spalte */}
         <Card>
           <CardContent className="p-4">
-            <div className="mb-4 mt-4 flex gap-2 overflow-x-auto">
+            {/* Listen-Auswahl als Cards */}
+            <div className="mb-4 mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {lists.map((l) => (
-                <Button
+                <ListCard
                   key={l.id}
-                  variant={activeList?.id === l.id ? "default" : "secondary"}
+                  list={l}
+                  selected={activeList?.id === l.id}
                   onClick={() => {
                     setActiveList(l);
                     setSelected({});
                     setListRefresh((v) => v + 1);
                   }}
-                >
-                  {l.name}
-                </Button>
+                />
               ))}
             </div>
 
