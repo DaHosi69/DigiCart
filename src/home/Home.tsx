@@ -6,9 +6,11 @@ import type { Database } from "@/shared/classes/database.types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ChevronLeft, ShoppingCart } from "lucide-react";
 import ListDetail from "./common/Toolbar/ListDetail";
 import Toolbar from "./common/Toolbar/Toolbar";
 import ListCard from "./common/Toolbar/ListCard";
+import { useNavigate } from "react-router-dom";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"];
@@ -21,23 +23,23 @@ type SelectedMap = Record<string, { product: Product; qty: number }>;
 
 export default function Home() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [activeList, setActiveList] = useState<ShoppingList | null>(null);
 
   const [selected, setSelected] = useState<SelectedMap>({});
-
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderName, setOrderName] = useState("");
 
-  // 🆕 Suchbegriff für Produkte
   const [productSearch, setProductSearch] = useState<string>("");
-
-  // Refresh-Trigger für ListDetail
   const [listRefresh, setListRefresh] = useState(0);
+
+  // zeigt Auswahlansicht, solange keine Liste aktiv ist
+  const showPicker = !activeList;
 
   useEffect(() => {
     const loadAll = async () => {
@@ -65,34 +67,27 @@ export default function Home() {
 
       setLists(ls ?? []);
       setProducts((ps as Product[]) ?? []);
-      setActiveList((ls ?? [])[0] ?? null);
       setLoading(false);
     };
 
     void loadAll();
   }, []);
 
-  // 🆕 Gefilterte Produkte (case-insensitive)
   const filteredProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
     if (!q) return products;
     return products.filter((p) => (p.name ?? "").toLowerCase().includes(q));
   }, [productSearch, products]);
 
-  // Auswahl toggeln
   const toggleProduct = (p: Product) => {
     setSelected((prev) => {
       const next = { ...prev };
-      if (next[p.id]) {
-        delete next[p.id];
-      } else {
-        next[p.id] = { product: p, qty: 1 };
-      }
+      if (next[p.id]) delete next[p.id];
+      else next[p.id] = { product: p, qty: 1 };
       return next;
     });
   };
 
-  // Menge ändern
   const changeQty = (productId: string, qty: number) => {
     setSelected((prev) => {
       if (!prev[productId]) return prev;
@@ -106,14 +101,11 @@ export default function Home() {
     [selected]
   );
 
-  // Immer NEUE Order anlegen
   const createOrder = async (
     listId: string,
     profileId: string,
     name: string
   ): Promise<Order> => {
-    console.log(name);
-
     const payload: OrderInsert = {
       list_id: listId,
       created_by_profile_id: profileId,
@@ -130,15 +122,12 @@ export default function Home() {
       .insert(payload)
       .select("*")
       .single();
-
     if (error) throw error;
     return data!;
   };
 
-  // Produkte gesammelt hinzufügen
   const addBatchToList = async () => {
     if (!activeList || !profile?.id) return;
-    console.log(orderName);
 
     const normalizedName = orderName.trim();
     if (!normalizedName) {
@@ -177,6 +166,13 @@ export default function Home() {
     }
   };
 
+  const goBackToPicker = () => {
+    setActiveList(null);
+    setSelected({});
+    setOrderName("");
+    setProductSearch("");
+  };
+
   if (loading)
     return <div className="p-4 text-sm text-muted-foreground">Lade…</div>;
   if (error) return <div className="p-4 text-sm text-red-600">{error}</div>;
@@ -184,148 +180,193 @@ export default function Home() {
   return (
     <>
       <Toolbar />
-      <div className="mt-2 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6">
-        {/* Linke Spalte */}
-        <Card>
-          <CardContent className="p-4">
-            {/* Listen-Auswahl als Cards */}
-            <div className="mb-4 mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {lists.map((l) => (
-                <ListCard
-                  key={l.id}
-                  list={l}
-                  selected={activeList?.id === l.id}
-                  onClick={() => {
-                    setActiveList(l);
-                    setSelected({});
-                    setListRefresh((v) => v + 1);
-                  }}
-                />
-              ))}
+      {showPicker ? (
+        <label className="text-sm opacity-70">
+          Wähle eine Einkaufsliste aus zu der du Bestellungen hinzufügen willst.
+        </label>
+      ) : (
+        <label className="text-sm opacity-70">
+          Füge ein oder mehrere Produkte zur Einkaufsliste hinzu.
+        </label>
+      )}
+      {/* Kopfzeile: zeigt Back + Listentitel nur wenn eine Liste aktiv ist */}
+      {!showPicker && activeList && (
+        <div className="mt-2 mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={goBackToPicker} className="gap-1">
+              <ChevronLeft className="h-4 w-4" />
+              Zur Listen-Auswahl
+            </Button>
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 opacity-70" />
+              <span className="font-semibold">{activeList.name}</span>
             </div>
-            <hr/>
+          </div>
+        </div>
+      )}
 
-            {activeList ? (
-              <ListDetail listId={activeList.id} refreshKey={listRefresh} />
+      <div
+        className={
+          showPicker
+            ? "w-full mt-2" // nur 1 Spalte wenn Picker aktiv ist
+            : "w-full mt-2 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6"
+        }
+      >
+        {" "}
+        {/* Linke Spalte */}
+        <Card className="w-full">
+          <CardContent className="p-4">
+            {showPicker ? (
+              // --- Auswahlansicht (nur Cards der aktiven Listen) ---
+              <>
+                <label className="text-xl font-semibold">Einkaufslisten:</label>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {lists.map((l) => (
+                    <ListCard
+                      key={l.id}
+                      list={l}
+                      selected={false}
+                      onClick={() => {
+                        setActiveList(l);
+                        setSelected({});
+                        setListRefresh((v) => v + 1);
+                      }}
+                    />
+                  ))}
+                  {lists.length === 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      Keine aktiven Einkaufslisten.
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
-              <div className="text-sm text-muted-foreground">
-                Keine aktive Liste ausgewählt.
-              </div>
+              // --- Detailansicht der gewählten Liste ---
+              activeList && (
+                <ListDetail listId={activeList.id} refreshKey={listRefresh} />
+              )
             )}
           </CardContent>
         </Card>
+        {/* Rechte Spalte: Produkt-Panel NUR wenn Liste aktiv */}
+        {!showPicker && activeList && (
+          <Card className="max-h-[90vh] sm:max-h-[calc(90vh-200px)]">
+            <CardContent className="p-4 space-y-3">
+              {/* Produkt-Suche */}
+              <div className="space-y-1">
+                <label htmlFor="product-search" className="text-l font-medium">
+                  Produkt Suchen
+                </label>
+                <Input
+                  id="product-search"
+                  placeholder="z. B. Cola, Käse, Brot…"
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                />
+              </div>
 
-        {/* Rechte Spalte */}
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            {/* Produkt-Suche (steuert rechte Spalte) */}
-            <div className="space-y-1">
-              <label htmlFor="product-search" className="text-l font-medium">
-                Produkt Suchen
-              </label>
-              <Input
-                id="product-search"
-                placeholder="z. B. Cola, Käse, Brot…"
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-              />
-            </div>
-            <div className="text-sm font-medium">Produkte auswählen</div>
+              <div className="text-sm font-medium">Produkte auswählen</div>
 
-            <div className="grid gap-2 max-h-40 overflow-y-auto pr-1">
-              {filteredProducts.length === 0 && (
-                <div className="text-xs text-muted-foreground">
-                  Keine Produkte gefunden.
-                </div>
-              )}
-
-              {filteredProducts.map((p) => {
-                const sel = selected[p.id];
-                const isActive = !!sel;
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-2 rounded-md p-2"
-                  >
-                    <Button
-                      variant={isActive ? "default" : "outline"}
-                      onClick={() => toggleProduct(p)}
-                      className="min-w-28 justify-between"
-                    >
-                      <span className="truncate">{p.name}</span>
-                      <span className="text-xs opacity-75">
-                        {Number(p.price ?? 0).toFixed(2)}{" "}
-                        {p.currency_code ?? "EUR"}
-                      </span>
+              <div className="grid gap-2 max-h-40 overflow-y-auto pr-1">
+                {filteredProducts.length === 0 && (
+                  <>
+                    <div className="text-xs text-muted-foreground">
+                      Keine Produkte mit diesem Namen gefunden.
+                    </div>
+                    <Button onClick={() => navigate("/products")}>
+                      Neues Produkt erstellen
                     </Button>
+                  </>
+                )}
 
-                    {isActive && (
-                      <div className="ml-auto flex items-center gap-2">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="secondary"
-                          onClick={() => changeQty(p.id, (sel.qty ?? 1) - 1)}
-                          aria-label="Menge verringern"
-                        >
-                          −
-                        </Button>
-                        <Input
-                          type="number"
-                          value={sel.qty}
-                          onChange={(e) =>
-                            changeQty(p.id, Number(e.target.value))
-                          }
-                          className="w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min={1}
-                        />
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="secondary"
-                          onClick={() => changeQty(p.id, (sel.qty ?? 1) + 1)}
-                          aria-label="Menge erhöhen"
-                        >
-                          +
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                {filteredProducts.map((p) => {
+                  const sel = selected[p.id];
+                  const isActive = !!sel;
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-2 rounded-md p-2"
+                    >
+                      <Button
+                        variant={isActive ? "default" : "outline"}
+                        onClick={() => toggleProduct(p)}
+                        className="min-w-28 justify-between"
+                      >
+                        <span className="truncate">{p.name}</span>
+                        <span className="text-xs opacity-75">
+                          {Number(p.price ?? 0).toFixed(2)}{" "}
+                          {p.currency_code ?? "EUR"}
+                        </span>
+                      </Button>
 
-            {/* Name der bestellenden Person */}
-            <div className="space-y-1">
-              <label htmlFor="order-name" className="text-xs opacity-80">
-                Name der bestellenden Person
-              </label>
-              <Input
-                id="order-name"
-                value={orderName}
-                onChange={(e) => setOrderName(e.target.value)}
-                placeholder="z. B. Max Mustermann"
-              />
-            </div>
+                      {isActive && (
+                        <div className="ml-auto flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="secondary"
+                            onClick={() => changeQty(p.id, (sel.qty ?? 1) - 1)}
+                            aria-label="Menge verringern"
+                          >
+                            −
+                          </Button>
+                          <Input
+                            type="number"
+                            value={sel.qty}
+                            onChange={(e) =>
+                              changeQty(p.id, Number(e.target.value))
+                            }
+                            className="w-16 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            min={1}
+                          />
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="secondary"
+                            onClick={() => changeQty(p.id, (sel.qty ?? 1) + 1)}
+                            aria-label="Menge erhöhen"
+                          >
+                            +
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
 
-            <Button
-              className="w-full"
-              onClick={addBatchToList}
-              disabled={
-                !activeList || adding || Object.keys(selected).length === 0
-              }
-              title={
-                Object.keys(selected).length === 0
-                  ? "Bitte Produkte auswählen"
-                  : undefined
-              }
-            >
-              {adding
-                ? "Wird hinzugefügt…"
-                : `Zur Liste hinzufügen (${totalSelected} Artikel)`}
-            </Button>
-          </CardContent>
-        </Card>
+              {/* Name der bestellenden Person */}
+              <div className="space-y-1">
+                <label htmlFor="order-name" className="text-xs opacity-80">
+                  Name der bestellenden Person
+                </label>
+                <Input
+                  id="order-name"
+                  value={orderName}
+                  onChange={(e) => setOrderName(e.target.value)}
+                  placeholder="z. B. Max Mustermann"
+                />
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={addBatchToList}
+                disabled={
+                  !activeList || adding || Object.keys(selected).length === 0
+                }
+                title={
+                  Object.keys(selected).length === 0
+                    ? "Bitte Produkte auswählen"
+                    : undefined
+                }
+              >
+                {adding
+                  ? "Wird hinzugefügt…"
+                  : `Zur Liste hinzufügen (${totalSelected} Artikel)`}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </>
   );

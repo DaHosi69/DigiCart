@@ -26,6 +26,7 @@ const items = [
     title: "Listen",
     url: "/lists",
     icon: List,
+    adminOnly: true,
   },
   {
     title: "Produkte",

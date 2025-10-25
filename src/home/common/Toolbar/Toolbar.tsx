@@ -19,9 +19,6 @@ export default function Toolbar() {
           <Moon className="h-5 w-5" />
         </div>
       </div>
-      <label className="text-sm opacity-70">
-        Wähle eine Einkaufsliste aus zu der du Bestellungen hinzufügen willst.
-      </label>
     </div>
   );
 }
