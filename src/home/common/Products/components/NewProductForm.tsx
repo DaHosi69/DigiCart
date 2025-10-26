@@ -16,9 +16,10 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { Save } from "lucide-react";
+import { ChevronLeft, Save } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from "@/shared/classes/database.types";
+import { useNavigate } from "react-router-dom";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -34,6 +35,7 @@ export default function NewProductForm({
   const [categoryId, setCategoryId] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryError, setCategoryError] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
@@ -73,6 +75,16 @@ export default function NewProductForm({
     <Card className="rounded-2xl shadow-sm">
       <form onSubmit={handleSubmit}>
         <CardHeader>
+          <div className="flex justify-start">
+            <Button
+              variant="ghost"
+              onClick={() => navigate(-1)}
+              className="gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Zur Listen-auswahl
+            </Button>
+          </div>
           <CardTitle className="text-2xl font-semibold">
             Neues Produkt
           </CardTitle>

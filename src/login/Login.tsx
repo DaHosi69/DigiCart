@@ -44,8 +44,8 @@ export default function Login() {
              transition-colors duration-500"
     >
       <Card
-        className="w-full max-w-sm rounded-xl shadow-xl border border-white/20 
-                   bg-white/70 dark:bg-zinc-800/70 backdrop-blur-md"
+        className="w-full max-w-sm rounded-xl shadow-xl border border-gray/20 
+                   bg-gray/70 dark:bg-zinc-800/70 backdrop-blur-md"
       >
         <CardHeader className="text-center space-y-2">
           <img src="/DigiCartBW.svg"/>
@@ -81,14 +81,6 @@ export default function Login() {
               onClick={onLogin}
             >
               Login
-            </Button>
-            <Button
-              className="w-full bg-gray-300 hover:bg-gray-400 text-gray-900 
-               dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-white 
-               rounded-xl transition-transform hover:scale-[1.02]"
-              onClick={onSignUp}
-            >
-              Registrieren
             </Button>
           </div>
         </CardContent>
