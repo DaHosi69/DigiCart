@@ -37,7 +37,6 @@ const items = [
     title: "Abrechungen",
     url: "/billings",
     icon: Wallet,
-    adminOnly: true,
   },
  /* {
     title: "Einstellungen",

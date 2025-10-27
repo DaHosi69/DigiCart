@@ -39,18 +39,25 @@ createRoot(document.getElementById("root")!).render(
                 </RequireAdmin>
               }
             />
-            <Route path="/lists" element={<RequireAdmin><Lists /></RequireAdmin>} />
-            <Route path="/lists/:id/edit" element={<RequireAdmin><ShoppingListEdit /></RequireAdmin>} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/:id/edit" element={<ProductEdit />} />
             <Route
-              path="/billings"
+              path="/lists"
               element={
                 <RequireAdmin>
-                  <Billings />
+                  <Lists />
                 </RequireAdmin>
               }
             />
+            <Route
+              path="/lists/:id/edit"
+              element={
+                <RequireAdmin>
+                  <ShoppingListEdit />
+                </RequireAdmin>
+              }
+            />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/:id/edit" element={<ProductEdit />} />
+            <Route path="/billings" element={<Billings />} />
           </Route>
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>

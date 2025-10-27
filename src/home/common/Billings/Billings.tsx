@@ -13,7 +13,6 @@ type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"];
 type Product = Tables["products"]["Row"];
 
-// View-Zeilen
 type ViewRow = {
   list_item_id: string;
   list_id: string;
@@ -48,14 +47,11 @@ export default function Billings() {
   const [loadingRows, setLoadingRows] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Filter nach Namen
   const [nameFilter, setNameFilter] = useState("");
 
-  // Bezahlstatus je Name (pro Liste)
   const [paidMap, setPaidMap] = useState<Record<string, boolean>>({});
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
 
-  // 1) Abgeschlossene Listen
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -81,7 +77,6 @@ export default function Billings() {
     };
   }, []);
 
-  // 2) Rows & Preise & Flags für ausgewählte Liste laden
   useEffect(() => {
     if (!selectedList) {
       setRows([]);
@@ -95,7 +90,6 @@ export default function Billings() {
       setLoadingRows(true);
       setErr(null);
 
-      // a) Items der Liste (aus View)
       const { data: vrows, error: vErr } = await supabase
         .from("v_list_items_with_order")
         .select("*")
@@ -116,7 +110,6 @@ export default function Billings() {
       const vr = (vrows as ViewRow[]) ?? [];
       setRows(vr);
 
-      // b) Preise
       const productIds = Array.from(new Set(vr.map((r) => r.product_id)));
       if (productIds.length > 0) {
         const { data: prices, error: pErr } = await supabase
@@ -141,7 +134,6 @@ export default function Billings() {
         setPriceMap({});
       }
 
-      // c) Bezahl-Flags laden
       const { data: flags, error: fErr } = await supabase
         .from("billing_flags")
         .select("payer_name,is_paid")
@@ -162,7 +154,6 @@ export default function Billings() {
     };
   }, [selectedList?.id]);
 
-  // 3) Aggregation: Summe pro Name
   const totals = useMemo(() => {
     const map = new Map<
       string,
@@ -170,6 +161,7 @@ export default function Billings() {
     >();
 
     for (const r of rows) {
+       if (r.category_name?.toLowerCase() === "extra") continue;
       const qty = Number(r.quantity ?? 1);
       const price = priceMap[r.product_id]?.price ?? 0;
       const currency = priceMap[r.product_id]?.currency ?? "EUR";
@@ -191,7 +183,21 @@ export default function Billings() {
       );
   }, [rows, priceMap, nameFilter]);
 
-  // 4) Details: gruppiert nach Kategorie
+  // 🔢 Gesamtsummen (alle, bezahlt, offen) – anhand totals & paidMap
+  const sumOverview = useMemo(() => {
+    let total = 0;
+    let paid = 0;
+    let open = 0;
+    let currency = "EUR";
+    totals.forEach(([name, t]) => {
+      total += t.sum;
+      if (paidMap[name]) paid += t.sum;
+      else open += t.sum;
+      currency = t.currency || currency;
+    });
+    return { total, paid, open, currency };
+  }, [totals, paidMap]);
+
   const byCategory = useMemo(() => {
     const cat = new Map<string, ViewRow[]>();
     rows.forEach((r) => {
@@ -204,7 +210,6 @@ export default function Billings() {
     );
   }, [rows]);
 
-  // Toggle bezahlt/offen pro Name
   const togglePaid = async (payerName: string) => {
     if (!selectedList) return;
     const key = payerName.trim() || "—";
@@ -214,7 +219,6 @@ export default function Billings() {
       const current = !!paidMap[key];
       const next = !current;
 
-      // Versuchen: existierenden Flag-Row upsert
       const { data, error } = await supabase
         .from("billing_flags")
         .upsert(
@@ -292,6 +296,51 @@ export default function Billings() {
         </CardContent>
       </Card>
 
+      {/* 💰 Gesamt-Summen */}
+      <Card className="mb-4">
+        <CardContent className="p-4">
+          {loadingRows ? (
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Berechne Summen…
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-md border p-3">
+                <div className="text-xs uppercase tracking-wide opacity-70">
+                  Gesamt
+                </div>
+                <div className="mt-1 text-xl font-semibold tabular-nums">
+                  {sumOverview.total.toFixed(2)} {sumOverview.currency}
+                </div>
+              </div>
+              <div className="rounded-md border p-3 bg-emerald-50 dark:bg-emerald-950/20">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    Bezahlt
+                  </div>
+                </div>
+                <div className="mt-1 text-lg font-medium tabular-nums text-emerald-700 dark:text-emerald-300">
+                  {sumOverview.paid.toFixed(2)} {sumOverview.currency}
+                </div>
+              </div>
+              <div className="rounded-md border p-3 bg-rose-50/60 dark:bg-rose-950/20">
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                  <div className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                    Offen
+                  </div>
+                </div>
+                <div className="mt-1 text-lg font-medium tabular-nums text-rose-700 dark:text-rose-300">
+                  {sumOverview.open.toFixed(2)} {sumOverview.currency}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Summen + Details */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6">
         {/* Summen pro Name */}
@@ -317,7 +366,7 @@ export default function Billings() {
               <div className="text-sm text-muted-foreground">Keine Daten.</div>
             ) : (
               <div className="rounded-md border overflow-hidden">
-                {totals.map(([name, t], idx) => {
+                {totals.map(([name, t]) => {
                   const paid = !!paidMap[name];
                   const isBusy = !!toggling[name];
                   return (
@@ -350,7 +399,6 @@ export default function Billings() {
                           {t.sum.toFixed(2)} {t.currency}
                         </div>
 
-                        {/* Status-Badge + Toggle */}
                         <Button
                           variant={paid ? "secondary" : "outline"}
                           size="sm"
@@ -384,7 +432,7 @@ export default function Billings() {
           </CardContent>
         </Card>
 
-        {/* Detailansicht je Kategorie */}
+        {/* Details je Kategorie */}
         <Card>
           <CardContent className="p-4 space-y-3">
             <div className="text-sm font-medium">Details (nach Kategorien)</div>
@@ -395,9 +443,7 @@ export default function Billings() {
                 Lade Details…
               </div>
             ) : rows.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                Keine Einträge.
-              </div>
+              <div className="text-sm text-muted-foreground">Keine Einträge.</div>
             ) : (
               <div className="space-y-5">
                 {byCategory.map(([category, items]) => (
@@ -428,15 +474,12 @@ export default function Billings() {
                             <div className="text-xs opacity-70">x {qty}</div>
 
                             <div className="ml-auto flex items-center gap-2">
-                              {/* Status Icon klein */}
                               {paid ? (
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                               ) : (
                                 <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                               )}
-                              <div className="text-xs opacity-70">
-                                {n || "—"}
-                              </div>
+                              <div className="text-xs opacity-70">{n || "—"}</div>
                               <div className="ml-3 text-sm tabular-nums">
                                 {line.toFixed(2)} {curr}
                               </div>
