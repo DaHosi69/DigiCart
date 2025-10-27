@@ -179,7 +179,7 @@ export default function Home() {
 
   return (
     <>
-      <Toolbar />
+      <Toolbar activeListName={activeList?.name || ""}/>
       {showPicker ? (
         <label className="text-sm opacity-70">
           Wähle eine Einkaufsliste aus zu der du Bestellungen hinzufügen willst.
@@ -197,10 +197,6 @@ export default function Home() {
               <ChevronLeft className="h-4 w-4" />
               Zur Listen-Auswahl
             </Button>
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4 opacity-70" />
-              <span className="font-semibold">{activeList.name}</span>
-            </div>
           </div>
         </div>
       )}
