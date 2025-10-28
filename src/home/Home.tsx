@@ -1,5 +1,5 @@
 // src/home/Home.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/providers/AuthProvider";
 import type { Database } from "@/shared/classes/database.types";
@@ -38,41 +38,109 @@ export default function Home() {
   const [productSearch, setProductSearch] = useState<string>("");
   const [listRefresh, setListRefresh] = useState(0);
 
-  // zeigt Auswahlansicht, solange keine Liste aktiv ist
-  const showPicker = !activeList;
+  // --- Debounce Refs ---
+  const listsDebounceRef = useRef<number | null>(null);
+  const prodsDebounceRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    const loadAll = async () => {
-      setLoading(true);
-      setError(null);
-
-      const [{ data: ls, error: e1 }, { data: ps, error: e2 }] =
-        await Promise.all([
-          supabase
-            .from("shopping_lists")
-            .select("id,name,is_active,notes,managed_by_profile_id,created_at")
-            .eq("is_active", true)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("products")
-            .select(
-              "id,name,price,currency_code,category_id,unit,created_at,is_active"
-            )
-            .eq("is_active", true)
-            .order("created_at", { ascending: false }),
-        ]);
-
-      if (e1) setError(e1.message);
-      if (e2) setError(e2.message);
-
-      setLists(ls ?? []);
-      setProducts((ps as Product[]) ?? []);
-      setLoading(false);
-    };
-
-    void loadAll();
+  // --- Loader ---
+  const loadLists = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("shopping_lists")
+      .select("id,name,is_active,notes,managed_by_profile_id,created_at")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    if (error) setError(error.message);
+    setLists(data ?? []);
   }, []);
 
+  const loadProducts = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("products")
+      .select(
+        "id,name,price,currency_code,category_id,unit,created_at,is_active"
+      )
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    if (error) setError(error.message);
+    setProducts((data as Product[]) ?? []);
+  }, []);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    await Promise.all([loadLists(), loadProducts()]);
+    setLoading(false);
+  }, [loadLists, loadProducts]);
+
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
+
+  // --- Debounced schedulers ---
+  const scheduleListsReload = useCallback(() => {
+    if (listsDebounceRef.current) window.clearTimeout(listsDebounceRef.current);
+    listsDebounceRef.current = window.setTimeout(() => {
+      listsDebounceRef.current = null;
+      void loadLists();
+    }, 150);
+  }, [loadLists]);
+
+  const scheduleProductsReload = useCallback(() => {
+    if (prodsDebounceRef.current) window.clearTimeout(prodsDebounceRef.current);
+    prodsDebounceRef.current = window.setTimeout(() => {
+      prodsDebounceRef.current = null;
+      void loadProducts();
+    }, 150);
+  }, [loadProducts]);
+
+  // --- Realtime Subscriptions ---
+  useEffect(() => {
+    // Aktive Einkaufslisten
+    const chLists = supabase
+      .channel("shopping_lists:active")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shopping_lists",
+          // optionaler Filter – trotzdem lieber reloaden, falls Status wechselt:
+          // filter: "is_active=eq.true",
+        },
+        () => scheduleListsReload()
+      )
+      .subscribe();
+
+    // Aktive Produkte
+    const chProducts = supabase
+      .channel("products:active")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "products",
+          // filter: "is_active=eq.true",
+        },
+        () => scheduleProductsReload()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(chLists);
+      supabase.removeChannel(chProducts);
+      if (listsDebounceRef.current) {
+        window.clearTimeout(listsDebounceRef.current);
+        listsDebounceRef.current = null;
+      }
+      if (prodsDebounceRef.current) {
+        window.clearTimeout(prodsDebounceRef.current);
+        prodsDebounceRef.current = null;
+      }
+    };
+  }, [scheduleListsReload, scheduleProductsReload]);
+
+  // --- Rest deiner Komponente ---
   const filteredProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
     if (!q) return products;
@@ -152,9 +220,7 @@ export default function Home() {
         note: null,
       }));
 
-      const { error: liErr } = await supabase
-        .from("list_items")
-        .insert(inserts);
+      const { error: liErr } = await supabase.from("list_items").insert(inserts);
       if (liErr) throw liErr;
 
       setSelected({});
@@ -179,8 +245,8 @@ export default function Home() {
 
   return (
     <>
-      <Toolbar activeListName={activeList?.name || ""}/>
-      {showPicker ? (
+      <Toolbar activeListName={activeList?.name || ""} />
+      {!activeList ? (
         <label className="text-sm opacity-70">
           Wähle eine Einkaufsliste aus zu der du Bestellungen hinzufügen willst.
         </label>
@@ -189,8 +255,9 @@ export default function Home() {
           Füge ein oder mehrere Produkte zur Einkaufsliste hinzu.
         </label>
       )}
+
       {/* Kopfzeile: zeigt Back + Listentitel nur wenn eine Liste aktiv ist */}
-      {!showPicker && activeList && (
+      {activeList && (
         <div className="mt-2 mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={goBackToPicker} className="gap-1">
@@ -203,16 +270,15 @@ export default function Home() {
 
       <div
         className={
-          showPicker
+          !activeList
             ? "w-full mt-2" // nur 1 Spalte wenn Picker aktiv ist
             : "w-full mt-2 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6"
         }
       >
-        {" "}
         {/* Linke Spalte */}
         <Card className="w-full">
           <CardContent className="p-4">
-            {showPicker ? (
+            {!activeList ? (
               // --- Auswahlansicht (nur Cards der aktiven Listen) ---
               <>
                 <label className="text-xl font-semibold">Einkaufslisten:</label>
@@ -244,8 +310,9 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
+
         {/* Rechte Spalte: Produkt-Panel NUR wenn Liste aktiv */}
-        {!showPicker && activeList && (
+        {activeList && (
           <Card className="max-h-[90vh] sm:max-h-[calc(90vh-200px)]">
             <CardContent className="p-4 space-y-3">
               {/* Produkt-Suche */}
