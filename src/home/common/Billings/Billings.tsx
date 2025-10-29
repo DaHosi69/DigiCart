@@ -53,29 +53,52 @@ export default function Billings() {
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      setErr(null);
+  let mounted = true;
 
-      const { data, error } = await supabase
-        .from("shopping_lists")
-        .select("id,name,is_active,notes,managed_by_profile_id,created_at")
-        .eq("is_active", false)
-        .order("created_at", { ascending: false });
+  const loadLists = async () => {
+    setLoading(true);
+    setErr(null);
 
-      if (!mounted) return;
-      if (error) setErr(error.message);
+    const { data, error } = await supabase
+      .from("shopping_lists")
+      .select("id,name,is_active,notes,managed_by_profile_id,created_at")
+      .eq("is_active", false)
+      .order("created_at", { ascending: false });
 
-      const ls = (data as ShoppingList[]) ?? [];
-      setLists(ls);
-      setSelectedList(ls[0] ?? null);
-      setLoading(false);
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    if (!mounted) return;
+    if (error) setErr(error.message);
+
+    const ls = (data as ShoppingList[]) ?? [];
+    setLists(ls);
+    setSelectedList(ls[0] ?? null);
+    setLoading(false);
+  };
+
+  // 🔄 Initial laden
+  loadLists();
+
+  // ✅ Realtime auf abgeschlossene (is_active=false) Listen
+  const channel = supabase
+    .channel("billing-lists")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "shopping_lists",
+        filter: "is_active=eq.false",
+      },
+      () => {
+        loadLists(); // ← automatisch neu laden
+      }
+    )
+    .subscribe();
+
+  return () => {
+    mounted = false;
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   useEffect(() => {
     if (!selectedList) {
