@@ -18,8 +18,8 @@ export function ProductCard({
 }: {
   product: Product;
   categories: Category[];
-  onMenu?: () => void;              // Edit
-  onDelete?: (id: string) => void;  // Delete
+  onMenu?: () => void;              
+  onDelete?: (id: string) => void;  
   className?: string;
 }) {
   const { isAdmin } = useAuth();

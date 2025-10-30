@@ -1,4 +1,3 @@
-// src/home/Home.tsx
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/providers/AuthProvider";
@@ -6,11 +5,11 @@ import type { Database } from "@/shared/classes/database.types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ShoppingCart } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import ListDetail from "./common/Toolbar/ListDetail";
 import Toolbar from "./common/Toolbar/Toolbar";
 import ListCard from "./common/Toolbar/ListCard";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"];
@@ -24,6 +23,7 @@ type SelectedMap = Record<string, { product: Product; qty: number }>;
 export default function Home() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { id: listIdParam } = useParams<{ id?: string }>(); // /home/lists/:id
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -76,6 +76,19 @@ export default function Home() {
     void loadAll();
   }, [loadAll]);
 
+  // Aktive Liste anhand Route setzen (sobald Listen geladen)
+  useEffect(() => {
+    if (!lists) return;
+    if (listIdParam) {
+      const found = lists.find((l) => l.id === listIdParam) || null;
+      setActiveList(found);
+      // Wenn ID ungültig ist, zurück zum Picker
+      if (!found && !loading) navigate("/home", { replace: true });
+    } else {
+      setActiveList(null); // Picker
+    }
+  }, [lists, listIdParam, loading, navigate]);
+
   // --- Debounced schedulers ---
   const scheduleListsReload = useCallback(() => {
     if (listsDebounceRef.current) window.clearTimeout(listsDebounceRef.current);
@@ -95,7 +108,6 @@ export default function Home() {
 
   // --- Realtime Subscriptions ---
   useEffect(() => {
-    // Aktive Einkaufslisten
     const chLists = supabase
       .channel("shopping_lists:active")
       .on(
@@ -104,14 +116,11 @@ export default function Home() {
           event: "*",
           schema: "public",
           table: "shopping_lists",
-          // optionaler Filter – trotzdem lieber reloaden, falls Status wechselt:
-          // filter: "is_active=eq.true",
         },
         () => scheduleListsReload()
       )
       .subscribe();
 
-    // Aktive Produkte
     const chProducts = supabase
       .channel("products:active")
       .on(
@@ -120,7 +129,6 @@ export default function Home() {
           event: "*",
           schema: "public",
           table: "products",
-          // filter: "is_active=eq.true",
         },
         () => scheduleProductsReload()
       )
@@ -233,7 +241,9 @@ export default function Home() {
   };
 
   const goBackToPicker = () => {
-    setActiveList(null);
+    // zurück zum Picker als Route
+    navigate("/home");
+    // UI-state zurücksetzen (optional)
     setSelected({});
     setOrderName("");
     setProductSearch("");
@@ -243,10 +253,12 @@ export default function Home() {
     return <div className="p-4 text-sm text-muted-foreground">Lade…</div>;
   if (error) return <div className="p-4 text-sm text-red-600">{error}</div>;
 
+  const pickerActive = !listIdParam; // Route-abhängig
+
   return (
     <>
       <Toolbar activeListName={activeList?.name || ""} />
-      {!activeList ? (
+      {pickerActive ? (
         <label className="text-sm opacity-70">
           Wähle eine Einkaufsliste aus zu der du Bestellungen hinzufügen willst.
         </label>
@@ -256,8 +268,8 @@ export default function Home() {
         </label>
       )}
 
-      {/* Kopfzeile: zeigt Back + Listentitel nur wenn eine Liste aktiv ist */}
-      {activeList && (
+      {/* Kopfzeile: Back nur wenn eine Liste aktiv (Route hat :id) */}
+      {!pickerActive && (
         <div className="mt-2 mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={goBackToPicker} className="gap-1">
@@ -270,16 +282,15 @@ export default function Home() {
 
       <div
         className={
-          !activeList
-            ? "w-full mt-2" // nur 1 Spalte wenn Picker aktiv ist
+          pickerActive
+            ? "w-full mt-2"
             : "w-full mt-2 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6"
         }
       >
         {/* Linke Spalte */}
         <Card className="w-full">
           <CardContent className="p-4">
-            {!activeList ? (
-              // --- Auswahlansicht (nur Cards der aktiven Listen) ---
+            {pickerActive ? (
               <>
                 <label className="text-xl font-semibold">Einkaufslisten:</label>
                 <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -289,7 +300,8 @@ export default function Home() {
                       list={l}
                       selected={false}
                       onClick={() => {
-                        setActiveList(l);
+                        // statt setActiveList → Route wechseln
+                        navigate(`/home/lists/${l.id}`);
                         setSelected({});
                         setListRefresh((v) => v + 1);
                       }}
@@ -303,7 +315,6 @@ export default function Home() {
                 </div>
               </>
             ) : (
-              // --- Detailansicht der gewählten Liste ---
               activeList && (
                 <ListDetail listId={activeList.id} refreshKey={listRefresh} />
               )
@@ -311,11 +322,10 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Rechte Spalte: Produkt-Panel NUR wenn Liste aktiv */}
-        {activeList && (
+        {/* Rechte Spalte nur wenn :id */}
+        {!pickerActive && activeList && (
           <Card className="max-h-[90vh] sm:max-h-[calc(90vh-200px)]">
             <CardContent className="p-4 space-y-3">
-              {/* Produkt-Suche */}
               <div className="space-y-1">
                 <label htmlFor="product-search" className="text-l font-medium">
                   Produkt Suchen

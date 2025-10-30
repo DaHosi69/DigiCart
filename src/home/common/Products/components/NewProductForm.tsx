@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Card,
   CardHeader,
@@ -19,7 +19,7 @@ import {
 import { ChevronLeft, Save } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from "@/shared/classes/database.types";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -36,6 +36,10 @@ export default function NewProductForm({
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryError, setCategoryError] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  let prevPath: string = '';
+  let currentPath: string = location.pathname;
 
   useEffect(() => {
     (async () => {
@@ -45,7 +49,12 @@ export default function NewProductForm({
         .order("name", { ascending: true });
       setCategories((data as Category[]) ?? []);
     })();
-  }, []);
+    prevPath = currentPath;
+    currentPath = location.pathname;
+    console.log('prev: ',prevPath);
+    console.log('current ',currentPath);
+    
+  }, [location.pathname]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +80,19 @@ export default function NewProductForm({
     setCategoryId("");
   };
 
+  const navigateBackToHome = () => {
+  const prev = prevPath ?? "";
+  
+  const isListDetail = /^\/home\/lists\/[^/]+$/i.test(prev);
+
+  if (isListDetail) {
+    navigate(prev);
+  } else {
+    navigate("/home", { replace: true });
+  }
+};
+
+
   return (
     <Card className="rounded-2xl shadow-sm">
       <form onSubmit={handleSubmit}>
@@ -78,7 +100,7 @@ export default function NewProductForm({
           <div className="flex justify-start">
             <Button
               variant="ghost"
-              onClick={() => navigate(-1)}
+              onClick={navigateBackToHome}
               className="gap-1"
             >
               <ChevronLeft className="h-4 w-4" />

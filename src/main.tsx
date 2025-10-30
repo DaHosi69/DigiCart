@@ -30,6 +30,7 @@ createRoot(document.getElementById("root")!).render(
             }
           >
             <Route path="/home" element={<Home />} />
+            <Route path="/home/lists/:id" element={<Home />} />
             {/* <Route path="/home/settings" element={<AppSettings />} /> */}
             <Route
               path="/home/admin"
