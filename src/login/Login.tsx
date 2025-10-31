@@ -25,17 +25,6 @@ export default function Login() {
     navigate("/home"); 
   };
 
-  const onSignUp = async () => {
-    setError(null);
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return setError(error.message);
-    // Profil direkt anlegen (client-seitig ok, RLS erlaubt "self upsert")
-    await supabase.from("profiles").upsert({
-      auth_user_id: data.user?.id,
-      display_name: email.split("@")[0],
-    });
-  };
-
   return (
     <div
       className="min-h-screen flex items-center justify-center p-6 

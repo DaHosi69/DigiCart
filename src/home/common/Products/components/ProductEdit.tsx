@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save } from "lucide-react";
-import { useAuth } from "@/providers/AuthProvider";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
@@ -17,7 +16,6 @@ type Category = Database["public"]["Tables"]["categories"]["Row"];
 export default function ProductEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,7 +61,6 @@ export default function ProductEdit() {
   }, [id]);
 
   const onSave = async () => {
-    if (!isAdmin || !id) return;
     setSaving(true); setError(null);
 
     const patch: ProductUpdate = {
@@ -96,7 +93,7 @@ export default function ProductEdit() {
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>Name</Label>
-            <Input value={name} onChange={(e)=>setName(e.target.value)} disabled={!isAdmin} required />
+            <Input value={name} onChange={(e)=>setName(e.target.value)} required />
           </div>
 
           <div className="space-y-2">
@@ -111,23 +108,23 @@ export default function ProductEdit() {
 
           <div className="space-y-2">
             <Label>Einheit</Label>
-            <Input value={unit} onChange={(e)=>setUnit(e.target.value)} disabled={!isAdmin} />
+            <Input value={unit} onChange={(e)=>setUnit(e.target.value)} />
           </div>
 
           <div className="space-y-2">
             <Label>Preis</Label>
-            <Input type="number" step="0.01" min="0" value={price} onChange={(e)=>setPrice(e.target.value)} disabled={!isAdmin} />
+            <Input type="number" step="0.01" min="0" value={price} onChange={(e)=>setPrice(e.target.value)} />
           </div>
 
           <div className="space-y-2">
             <Label>Währung</Label>
-            <Input value={currency} onChange={(e)=>setCurrency(e.target.value)} disabled={!isAdmin} />
+            <Input value={currency} onChange={(e)=>setCurrency(e.target.value)}  />
           </div>
         </CardContent>
 
         <CardFooter className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => navigate(-1)}>Abbrechen</Button>
-          <Button onClick={onSave} disabled={!isAdmin || saving}>
+          <Button onClick={onSave} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
             {saving ? "Speichern…" : "Speichern"}
           </Button>

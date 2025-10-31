@@ -42,8 +42,9 @@ export function ProductCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
+            <>
             {isAdmin && (
-              <>
+              
                 <Button
                   variant="ghost" size="icon"
                   onClick={(e) => { e.stopPropagation(); onDelete?.(product.id); }}
@@ -52,6 +53,7 @@ export function ProductCard({
                 >
                   <Trash2 className="h-5 w-5" />
                 </Button>
+                )}
                 <Button
                   variant="ghost" size="icon"
                   onClick={(e) => { e.stopPropagation(); onMenu?.(); }}
@@ -60,7 +62,7 @@ export function ProductCard({
                   <Edit className="h-5 w-5" />
                 </Button>
               </>
-            )}
+            
           </div>
         </div>
 
