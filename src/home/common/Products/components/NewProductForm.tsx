@@ -20,6 +20,7 @@ import { ChevronLeft, Save } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from "@/shared/classes/database.types";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useRouteHistory } from "@/providers/RouteHistoryProvider";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -37,9 +38,7 @@ export default function NewProductForm({
   const [categoryError, setCategoryError] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-
-  let prevPath: string = '';
-  let currentPath: string = location.pathname;
+  const { smartBack, prevPath, currentPath } = useRouteHistory();
 
   useEffect(() => {
     (async () => {
@@ -49,12 +48,8 @@ export default function NewProductForm({
         .order("name", { ascending: true });
       setCategories((data as Category[]) ?? []);
     })();
-    prevPath = currentPath;
-    currentPath = location.pathname;
-    console.log('prev: ',prevPath);
-    console.log('current ',currentPath);
     
-  }, [location.pathname]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,15 +76,7 @@ export default function NewProductForm({
   };
 
   const navigateBackToHome = () => {
-  const prev = prevPath ?? "";
-  
-  const isListDetail = /^\/home\/lists\/[^/]+$/i.test(prev);
-
-  if (isListDetail) {
-    navigate(prev);
-  } else {
-    navigate("/home", { replace: true });
-  }
+    smartBack("/home");
 };
 
 
