@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Database } from "@/shared/classes/database.types";
 import { ShoppingListCard } from "./components/ShoppingListCard";
 import { Input } from "@/components/ui/input";
+import { useSimpleToasts } from "@/hooks/useSimpleToasts";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
 
@@ -17,6 +18,7 @@ export default function Lists() {
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useSimpleToasts();
 
   // 🔎 Suche (wie in Products)
   const [listSearch, setListSearch] = useState<string>("");
@@ -75,10 +77,12 @@ export default function Lists() {
 
     const { error } = await supabase.from("shopping_lists").delete().eq("id", id);
     if (error) {
+      toast.error('Liste konnte nicht gelöscht werden');
       console.error(error);
       setError(error.message);
       setLists(prev); // Rollback
     }
+    toast.success('Liste erfolgreich gelöscht');
   };
 
   const openDetails = (id: string) => navigate(`/lists/${id}/edit`);

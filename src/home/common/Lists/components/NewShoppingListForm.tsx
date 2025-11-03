@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useSimpleToasts } from "@/hooks/useSimpleToasts";
 
 type NewListFormProps = {
   defaultName?: string;
@@ -30,6 +31,7 @@ export default function NewShoppingListForm({
 }: NewListFormProps) {
   const [name, setName] = useState(defaultName);
   const [note, setNote] = useState(defaultNote);
+  const toast = useSimpleToasts();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

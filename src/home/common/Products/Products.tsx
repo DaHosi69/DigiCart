@@ -8,6 +8,7 @@ import NewProductForm from "./components/NewProductForm";
 import { ProductCard } from "./components/ProductCard";
 import { Input } from "@/components/ui/input"; // <-- für die Suche
 import { Label } from "@radix-ui/react-label"; // optional, du kannst auch <label> nehmen
+import { useSimpleToasts } from "@/hooks/useSimpleToasts";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -16,6 +17,8 @@ type Category = Database["public"]["Tables"]["categories"]["Row"];
 export default function Products() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const toast = useSimpleToasts();
+  
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -120,11 +123,13 @@ export default function Products() {
       .select("id,name,unit,category_id,price,currency_code,created_at,is_active")
       .single();
     if (error) {
+      toast.error('Liste konnte nicht hinzugefügt werden');
       setError(error.message);
       return;
     }
     // Optimistisch einfügen – Realtime lädt zusätzlich nach
     setProducts((prev) => (data ? [data as Product, ...prev] : prev));
+    toast.success('Liste wurde erfolgreich hinzugefügt');
   };
 
   const remove = async (id: string) => {

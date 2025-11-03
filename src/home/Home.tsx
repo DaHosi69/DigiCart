@@ -10,6 +10,7 @@ import ListDetail from "./common/Toolbar/ListDetail";
 import Toolbar from "./common/Toolbar/Toolbar";
 import ListCard from "./common/Toolbar/ListCard";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSimpleToasts } from "@/hooks/useSimpleToasts";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"];
@@ -24,6 +25,7 @@ export default function Home() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const { id: listIdParam } = useParams<{ id?: string }>(); // /home/lists/:id
+  const toast = useSimpleToasts();
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -235,8 +237,10 @@ export default function Home() {
       setListRefresh((v) => v + 1);
     } catch (e: any) {
       setError(e?.message ?? "Fehler beim Hinzufügen");
+      toast.error('Produkt konnte nicht zur Liste Hinzugefügt werden');
     } finally {
       setAdding(false);
+      toast.success('Produkt erfolgreich zur Liste Hinzugefügt');
     }
   };
 

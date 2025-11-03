@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
+import { useSimpleToasts } from "@/hooks/useSimpleToasts";
 
 type ViewRow = {
   list_item_id: string;
@@ -25,6 +26,7 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const { isAdmin } = useAuth();
+  const toast = useSimpleToasts();
 
   // --- 1) Fetch als Callback (wird von Realtime getriggert) ---
   const fetchRows = useCallback(async () => {
@@ -109,10 +111,12 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
     const { error } = await supabase.from("list_items").delete().eq("id", listItemId);
     if (error) {
       alert(error.message);
+      toast.error('Produkt konnte nicht gelöscht werden');
       return;
     }
     // lokal optimistisch entfernen – Realtime refetcht zusätzlich
     setRows((prev) => prev.filter((r) => r.list_item_id !== listItemId));
+    toast.success('Produkt erfolgreich gelöscht');
   };
 
   if (loading) return <div className="text-sm text-muted-foreground">Lade Listeneinträge…</div>;

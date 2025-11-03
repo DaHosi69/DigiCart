@@ -5,7 +5,6 @@ import Login from "./login/Login.tsx";
 import Home from "./home/Home.tsx";
 import Layout from "./shared/layout/Layout.tsx";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import AppSettings from "./shared/components/AppSettings.tsx";
 import { RequireAdmin, RequireAuth } from "./shared/components/guards.tsx";
 import { AuthProvider } from "./providers/AuthProvider.tsx";
 import Lists from "./home/common/Lists/Lists.tsx";
@@ -14,12 +13,16 @@ import Billings from "./home/common/Billings/Billings.tsx";
 import ShoppingListEdit from "./home/common/Lists/components/ShoppingListEdit.tsx";
 import ProductEdit from "./home/common/Products/components/ProductEdit.tsx";
 import { RouteHistoryProvider } from "./providers/RouteHistoryProvider.tsx";
+import { AppToaster } from "./hooks/useSimpleToasts.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
     <AuthProvider>
       <BrowserRouter>
         <RouteHistoryProvider>
+
+           <AppToaster />
+
           <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/login" element={<Login />} />
