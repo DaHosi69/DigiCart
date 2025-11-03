@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+// src/home/common/Lists/Lists.tsx
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import NewShoppingListForm from "./components/NewShoppingListForm";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from "@/shared/classes/database.types";
 import { ShoppingListCard } from "./components/ShoppingListCard";
+import { Input } from "@/components/ui/input";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
 
@@ -15,6 +17,9 @@ export default function Lists() {
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 🔎 Suche (wie in Products)
+  const [listSearch, setListSearch] = useState<string>("");
 
   const loadAllLists = async () => {
     setLoading(true);
@@ -60,36 +65,34 @@ export default function Lists() {
     setLists((prev) => (data ? [data, ...prev] : prev));
   };
 
-  // 🔴 Delete-Logik: fragt kurz nach, löscht in Supabase und aktualisiert State
   const deleteList = async (id: string) => {
-    if (!isAdmin) return; // Sicherheitsnetz; UI blendet den Button ohnehin aus
+    if (!isAdmin) return;
     const ok = window.confirm("Diese Einkaufsliste wirklich löschen?");
     if (!ok) return;
 
-    // Optimistisches Entfernen (optional): vorher merken, falls Rollback nötig
     const prev = lists;
     setLists((curr) => curr.filter((l) => l.id !== id));
 
-    const { error } = await supabase
-      .from("shopping_lists")
-      .delete()
-      .eq("id", id);
-
+    const { error } = await supabase.from("shopping_lists").delete().eq("id", id);
     if (error) {
       console.error(error);
       setError(error.message);
-      // Rollback, falls Delete fehlschlägt
-      setLists(prev);
-      return;
+      setLists(prev); // Rollback
     }
-
-    // Optional: refetchen (wenn du auf Nummer sicher gehen willst)
-    // await loadAllLists();
   };
 
-  
-const openDetails = (id: string) => navigate(`/lists/${id}/edit`);
+  const openDetails = (id: string) => navigate(`/lists/${id}/edit`);
 
+  // 🔎 Gefilterte Listen (Name + Notes, case-insensitive)
+  const filteredLists = useMemo(() => {
+    const q = listSearch.trim().toLowerCase();
+    if (!q) return lists;
+    return lists.filter((l) => {
+      const name = (l.name ?? "").toLowerCase();
+      const notes = (l.notes ?? "").toLowerCase();
+      return name.includes(q) || notes.includes(q);
+    });
+  }, [listSearch, lists]);
 
   return (
     <>
@@ -97,24 +100,48 @@ const openDetails = (id: string) => navigate(`/lists/${id}/edit`);
         <NewShoppingListForm
           onBack={() => navigate(-1)}
           onCancel={() => navigate("/home")}
-          onSave={addNewList} // <- erwartet hier { listname, listnote }
+          onSave={addNewList}
         />
       )}
+
+      {/* Suchfeld */}
+      <div className="mt-4 space-y-1">
+        <label htmlFor="list-search" className="text-l font-medium">
+          Listen suchen
+        </label>
+        <Input
+          id="list-search"
+          placeholder="z. B. Wocheneinkauf, Grillparty…"
+          value={listSearch}
+          onChange={(e) => setListSearch(e.target.value)}
+        />
+      </div>
 
       {loading && (
         <p className="text-sm text-muted-foreground mt-4">Lade Listen…</p>
       )}
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 
+      {/* Trefferanzahl */}
+      <div className="mt-2 text-xs text-muted-foreground">
+        {filteredLists.length} {filteredLists.length === 1 ? "Treffer" : "Treffer"}
+      </div>
+
       <div className="mt-4 grid gap-3">
-        {lists.map((list) => (
-          <ShoppingListCard
-            key={list.id}
-            list={list}
-            onMenu={() => openDetails(list.id)}  
-            onDelete={deleteList} // 👈 Delete-Callback an Card
-          />
-        ))}
+        {filteredLists.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            Keine Listen gefunden.
+          </div>
+        ) : (
+          filteredLists.map((list) => (
+            <ShoppingListCard
+              key={list.id}
+              list={list}
+              onMenu={() => openDetails(list.id)}
+              onDelete={deleteList}
+            />
+          ))
+        )}
       </div>
     </>
   );
