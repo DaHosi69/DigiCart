@@ -111,12 +111,12 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
     const { error } = await supabase.from("list_items").delete().eq("id", listItemId);
     if (error) {
       alert(error.message);
-      toast.error('Produkt konnte nicht gelöscht werden');
+      toast.error('Produkt konnte nicht aus der Liste entfernt werden');
       return;
     }
     // lokal optimistisch entfernen – Realtime refetcht zusätzlich
     setRows((prev) => prev.filter((r) => r.list_item_id !== listItemId));
-    toast.success('Produkt erfolgreich gelöscht');
+    toast.success('Produkt wurde erfolgreich aus der Liste entfernt');
   };
 
   if (loading) return <div className="text-sm text-muted-foreground">Lade Listeneinträge…</div>;

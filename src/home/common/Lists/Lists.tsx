@@ -61,9 +61,11 @@ export default function Lists() {
 
     if (error) {
       console.error(error);
+      toast.error('Hinzufügen der neuen Liste fehlgeschlagen');
       setError(error.message);
       return;
     }
+    toast.success('Liste wurde erfolgreich hinzugefügt');
     setLists((prev) => (data ? [data, ...prev] : prev));
   };
 

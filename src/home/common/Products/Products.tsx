@@ -7,7 +7,6 @@ import type { Database } from "@/shared/classes/database.types";
 import NewProductForm from "./components/NewProductForm";
 import { ProductCard } from "./components/ProductCard";
 import { Input } from "@/components/ui/input"; // <-- für die Suche
-import { Label } from "@radix-ui/react-label"; // optional, du kannst auch <label> nehmen
 import { useSimpleToasts } from "@/hooks/useSimpleToasts";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
@@ -123,13 +122,13 @@ export default function Products() {
       .select("id,name,unit,category_id,price,currency_code,created_at,is_active")
       .single();
     if (error) {
-      toast.error('Liste konnte nicht hinzugefügt werden');
+      toast.error('Produkt konnte nicht hinzugefügt werden');
       setError(error.message);
       return;
     }
     // Optimistisch einfügen – Realtime lädt zusätzlich nach
     setProducts((prev) => (data ? [data as Product, ...prev] : prev));
-    toast.success('Liste wurde erfolgreich hinzugefügt');
+    toast.success('Produkt wurde erfolgreich hinzugefügt');
   };
 
   const remove = async (id: string) => {
@@ -140,9 +139,11 @@ export default function Products() {
     setProducts((curr) => curr.filter((p) => p.id !== id));
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) {
+      toast.error('Produkt konnte nicht gelöscht werden');
       setError(error.message);
       setProducts(prev);
     }
+    toast.success('Produkt wurde erfolgreich gelöscht');
   };
 
   const openEdit = (id: string) => navigate(`/products/${id}/edit`);

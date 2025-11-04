@@ -99,12 +99,12 @@ export default function ProductEdit() {
     setSaving(false);
     if (error) {
       setError(error.message);
-      toast.error("Bearbeiten des Produktes fehlgeschlagen");
+      toast.error("Speichern der Änderungen des Produktes fehlgeschlagen");
       return;
     }
     console.log('tsuccess');
     
-    toast.success("Bearbeiten des Produktes erfolgreich");
+    toast.success("Änderungen des Produktes wurden erfolgreich gespeichert");
     navigate("/products");
   };
 
