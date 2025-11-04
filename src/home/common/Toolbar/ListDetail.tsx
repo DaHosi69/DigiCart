@@ -106,7 +106,6 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
   }, [rows]);
 
   const onDelete = async (listItemId: string) => {
-    if (!isAdmin) return;
     if (!confirm("Willst du dieses Produkt wirklich löschen?")) return;
     const { error } = await supabase.from("list_items").delete().eq("id", listItemId);
     if (error) {
@@ -145,8 +144,6 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
               <div className="ml-auto text-xs opacity-70">
                 {it.ordered_by_name?.trim() || "—"}
               </div>
-
-              {isAdmin && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -160,7 +157,6 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
                 >
                   <Trash2 className="h-5 w-5" />
                 </Button>
-              )} 
             </div>
           ))}
         </div>
