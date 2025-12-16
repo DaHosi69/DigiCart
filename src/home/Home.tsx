@@ -288,7 +288,7 @@ export default function Home() {
         className={
           pickerActive
             ? "w-full mt-2"
-            : "w-full mt-2 grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-4 lg:gap-6"
+            : "w-full mt-2 grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4 lg:gap-6"
         }
       >
         {/* Linke Spalte */}
@@ -362,22 +362,22 @@ export default function Home() {
                   return (
                     <div
                       key={p.id}
-                      className="flex items-center gap-2 rounded-md p-2"
+                      className="flex flex-col gap-1 rounded-md p-1.5"
                     >
                       <Button
                         variant={isActive ? "default" : "outline"}
                         onClick={() => toggleProduct(p)}
-                        className="min-w-28 justify-between"
+                        className="w-full min-h-[40px] h-auto whitespace-normal text-left justify-between items-start py-2"
                       >
-                        <span className="truncate">{p.name}</span>
-                        <span className="text-xs opacity-75">
+                        <span className="mr-2">{p.name}</span>
+                        <span className="text-xs opacity-75 shrink-0 pt-0.5">
                           {Number(p.price ?? 0).toFixed(2)}{" "}
                           {p.currency_code ?? "EUR"}
                         </span>
                       </Button>
 
                       {isActive && (
-                        <div className="ml-auto flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2 w-full">
                           <Button
                             type="button"
                             size="icon"

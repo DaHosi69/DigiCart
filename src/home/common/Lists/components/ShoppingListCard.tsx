@@ -134,12 +134,16 @@ export function ShoppingListCard({
               : "Unbekannt"}
           </span>
         </div>
-
+ 
         <div className="mt-3 flex items-center justify-end">
           <Button
             variant="outline"
             size="sm"
             className="group-hover:border-primary"
+            onClick={(e) => {
+                e.stopPropagation();
+                onMenu?.();
+              }}
           >
             Öffnen
             <ChevronRight className="ml-1 h-4 w-4" />
