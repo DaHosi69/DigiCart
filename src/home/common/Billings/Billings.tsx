@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle, ArrowRightLeft, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Tables = Database["public"]["Tables"];
@@ -34,6 +34,7 @@ type BillingFlag = {
   list_id: string;
   payer_name: string;
   is_paid: boolean;
+  is_debt?: boolean;
   updated_at?: string | null;
 };
 
@@ -49,7 +50,9 @@ export default function Billings() {
 
   const [nameFilter, setNameFilter] = useState("");
   const [paidMap, setPaidMap] = useState<Record<string, boolean>>({});
+  const [debtMap, setDebtMap] = useState<Record<string, boolean>>({});
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
+  const [movingToDebt, setMovingToDebt] = useState<Record<string, boolean>>({});
 
   // Für gezielte Product-Reloads
   const productIdSetRef = useRef<Set<string>>(new Set());
@@ -93,8 +96,10 @@ export default function Billings() {
     if (vErr) {
       setErr(vErr.message);
       setRows([]);
+      setRows([]);
       setPriceMap({});
       setPaidMap({});
+      setDebtMap({});
       setLoadingRows(false);
       return;
     }
@@ -132,21 +137,25 @@ export default function Billings() {
     // c) Flags
     const { data: flags, error: fErr } = await supabase
       .from("billing_flags")
-      .select("payer_name,is_paid")
+      .select("payer_name,is_paid,is_debt")
       .eq("list_id", listId);
 
     if (!fErr) {
       const map: Record<string, boolean> = {};
-      (flags as Pick<BillingFlag, "payer_name" | "is_paid">[]).forEach((f) => {
-        map[(f.payer_name ?? "").trim() || "—"] = !!f.is_paid;
+      const dMap: Record<string, boolean> = {};
+      (flags as Pick<BillingFlag, "payer_name" | "is_paid" | "is_debt">[]).forEach((f) => {
+        const key = (f.payer_name ?? "").trim() || "—";
+        map[key] = !!f.is_paid;
+        dMap[key] = !!f.is_debt;
       });
       setPaidMap(map);
+      setDebtMap(dMap);
     }
 
     setLoadingRows(false);
   }, []);
 
-  // --- Debounced Scheduler (wie in deinem Snippet) ---
+  // --- Debounced Scheduler ---
   const scheduleListsReload = useCallback(() => {
     if (listsDebounceRef.current) {
       window.clearTimeout(listsDebounceRef.current);
@@ -185,7 +194,6 @@ export default function Billings() {
 
   const scheduleProductsReload = useCallback(
     (listId?: string, productId?: string) => {
-      // Nur reloaden, wenn Produkt in der aktuellen Liste vorkommt (falls productId bekannt)
       if (productId && !productIdSetRef.current.has(productId)) return;
 
       if (prodsDebounceRef.current) {
@@ -225,14 +233,16 @@ export default function Billings() {
   useEffect(() => {
     if (!selectedList) {
       setRows([]);
+      setRows([]);
       setPriceMap({});
       setPaidMap({});
+      setDebtMap({});
       return;
     }
     loadRowsAndFlags(selectedList.id);
   }, [selectedList?.id, loadRowsAndFlags]);
 
-  // --- Realtime billing_flags (debounced) ---
+  // --- Realtime billing_flags ---
   useEffect(() => {
     if (!selectedList) return;
     const listId = selectedList.id;
@@ -248,8 +258,6 @@ export default function Billings() {
           filter: `list_id=eq.${listId}`,
         },
         (payload) => {
-          // Optimistisch: sofort kleines Patch im State (optional),
-          // sicherer: neu laden – hier debounced:
           scheduleFlagsReload(listId);
         }
       )
@@ -264,7 +272,7 @@ export default function Billings() {
     };
   }, [selectedList?.id, scheduleFlagsReload]);
 
-  // --- Realtime list_items (debounced) ---
+  // --- Realtime list_items ---
   useEffect(() => {
     if (!selectedList) return;
     const listId = selectedList.id;
@@ -292,7 +300,7 @@ export default function Billings() {
     };
   }, [selectedList?.id, scheduleRowsReload]);
 
-  // --- Realtime products (debounced, nur relevante Produkte) ---
+  // --- Realtime products ---
   useEffect(() => {
     if (!selectedList) return;
     const listId = selectedList.id;
@@ -322,7 +330,6 @@ export default function Billings() {
   const totals = useMemo(() => {
     const map = new Map<string, { sum: number; count: number; currency: string }>();
     for (const r of rows) {
-      // Kategorie "extra" nicht abrechnen:
       if (r.category_name?.toLowerCase() === "extra") continue;
 
       const qty = Number(r.quantity ?? 1);
@@ -368,20 +375,34 @@ export default function Billings() {
     return Array.from(cat.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [rows]);
 
-  // Toggle bezahlt/offen
   const togglePaid = async (payerName: string) => {
     if (!selectedList) return;
     const key = payerName.trim() || "—";
     setToggling((p) => ({ ...p, [key]: true }));
 
     try {
-      const current = !!paidMap[key];
-      const next = !current;
+      const currentPaid = !!paidMap[key];
+      const isDebt = !!debtMap[key];
+      const nextPaid = !currentPaid;
+
+      // If it was a debt, remove it from debts table
+      if (isDebt) {
+         const { error: delError } = await supabase
+          .from("debts")
+          .delete()
+          .eq("list_id", selectedList.id)
+          .eq("payer_name", key);
+        
+        if (delError) {
+            console.error("Failed to delete debt", delError);
+            // We continue anyway to update the UI flag
+        }
+      }
 
       const { data, error } = await supabase
         .from("billing_flags")
         .upsert(
-          { list_id: selectedList.id, payer_name: key, is_paid: next },
+          { list_id: selectedList.id, payer_name: key, is_paid: nextPaid, is_debt: false },
           { onConflict: "list_id,payer_name" }
         )
         .select()
@@ -389,12 +410,81 @@ export default function Billings() {
 
       if (error) throw error;
 
-      // Optimistisches Update – Realtime bestätigt danach
-      if (data) setPaidMap((m) => ({ ...m, [key]: next }));
+      if (data) {
+        setPaidMap((m) => ({ ...m, [key]: nextPaid }));
+        setDebtMap((m) => ({ ...m, [key]: false }));
+      }
     } catch (e: any) {
       alert(e?.message ?? "Fehler beim Aktualisieren des Zahlungsstatus");
     } finally {
       setToggling((p) => ({ ...p, [key]: false }));
+    }
+  };
+
+  const moveToDebt = async (name: string, amount: number) => {
+    if (!confirm(`Soll der Betrag von ${amount.toFixed(2)} EUR für "${name}" wirklich zu den Schulden hinzugefügt werden? Der Eintrag wird hier als bezahlt markiert.`)) {
+      return;
+    }
+
+    if (!selectedList) return;
+
+    const key = name.trim() || "—";
+    setMovingToDebt((p) => ({ ...p, [key]: true }));
+
+    try {
+      // 1. Check if debt exists
+      const { data: existing, error: checkError } = await supabase
+        .from("debts")
+        .select("id, amount")
+        .eq("list_id", selectedList.id)
+        .eq("payer_name", key)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existing) {
+        // Update existing
+        // Option: Overwrite amount or add? Usually "Move to debt" implies the total bill amount. 
+        // If the user already moved it, maybe they want to update it.
+        // I will overwrite the amount to match the current bill sum.
+        const { error: updateError } = await supabase
+          .from("debts")
+          .update({ amount: amount })
+          .eq("id", existing.id);
+        
+        if (updateError) throw updateError;
+      } else {
+        // Insert new with link
+        const { error: insertError } = await supabase
+          .from("debts")
+          .insert([{ 
+            name: key, 
+            amount: amount,
+            list_id: selectedList.id,
+            payer_name: key
+          }]);
+
+        if (insertError) throw insertError;
+      }
+
+      // 2. Mark as paid & debt
+      const { error: flagError } = await supabase
+        .from("billing_flags")
+        .upsert(
+          { list_id: selectedList.id, payer_name: key, is_paid: true, is_debt: true },
+          { onConflict: "list_id,payer_name" }
+        );
+
+      if (flagError) throw flagError;
+
+      // Optimistic Update
+      setPaidMap((m) => ({ ...m, [key]: true }));
+      setDebtMap((m) => ({ ...m, [key]: true }));
+
+    } catch (e: any) {
+      alert(e?.message ?? "Fehler beim Verschieben zu Schulden");
+    } finally {
+      setMovingToDebt((p) => ({ ...p, [key]: false }));
     }
   };
 
@@ -514,6 +604,7 @@ export default function Billings() {
               <div className="rounded-md border overflow-hidden">
                 {totals.map(([name, t]) => {
                   const paid = !!paidMap[name];
+                  const isDebt = !!debtMap[name];
                   const isBusy = !!toggling[name];
                   return (
                     <div
@@ -521,39 +612,81 @@ export default function Billings() {
                       className={cn(
                         "flex items-center justify-between p-3 gap-3",
                         "border-b last:border-b-0 transition-colors",
-                        paid ? "bg-emerald-50 dark:bg-emerald-950/30" : "bg-rose-50/40 dark:bg-rose-950/20"
+                        paid 
+                          ? isDebt 
+                              ? "bg-amber-50 dark:bg-amber-950/30" 
+                              : "bg-emerald-50 dark:bg-emerald-950/30"
+                          : "bg-rose-50/40 dark:bg-rose-950/20"
                       )}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <Badge variant="secondary" className="truncate">{name}</Badge>
+                        <Badge variant={isDebt ? "outline" : "secondary"} className={cn("truncate", isDebt && "border-amber-400 text-amber-700 dark:text-amber-400")}>
+                           {name}
+                        </Badge>
                         <span className="hidden md:block text-xs text-muted-foreground whitespace-nowrap">
                           {t.count} Produkte
                         </span>
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <div className={cn("font-medium tabular-nums", paid ? "text-emerald-700 dark:text-emerald-300" : "")}>
+                        <div className={cn("font-medium tabular-nums", 
+                            paid 
+                             ? isDebt 
+                               ? "text-amber-700 dark:text-amber-400"
+                               : "text-emerald-700 dark:text-emerald-300" 
+                             : "")}>
                           {t.sum.toFixed(2)} {t.currency}
                         </div>
 
+                      <div className="flex items-center gap-2">
+                        {/* Move to Debt Button - only show if NOT paid */}
+                        {!paid && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => moveToDebt(name, t.sum)}
+                            disabled={isBusy || !!movingToDebt[name]}
+                            className="border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 gap-1"
+                            title="Zu Schulden hinzufügen & als bezahlt markieren"
+                          >
+                            {movingToDebt[name] ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ArrowRightLeft className="h-4 w-4" />
+                            )}
+                            <span className="hidden sm:inline">Zu Schuld</span>
+                          </Button>
+                        )}
+                        
                         <Button
                           variant={paid ? "secondary" : "outline"}
                           size="sm"
                           onClick={() => togglePaid(name)}
-                          disabled={isBusy}
-                          className={cn("gap-1", paid ? "border-emerald-300 dark:border-emerald-800" : "border-rose-300 dark:border-rose-800")}
-                          title={paid ? "Als unbezahl markiern" : "Als bezahlt markieren"}
+                          disabled={isBusy || !!movingToDebt[name]}
+                          className={cn("gap-1", 
+                            paid 
+                              ? isDebt 
+                                ? "border-amber-300 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/20" 
+                                : "border-emerald-300 dark:border-emerald-800" 
+                              : "border-rose-300 dark:border-rose-800"
+                          )}
+                          title={paid ? "Als unbezahlt markieren" : "Als bezahlt markieren"} 
                         >
                           {isBusy ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : paid ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            isDebt ? (
+                                <Coins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            ) : (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            )
                           ) : (
                             <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                           )}
-                          <span className="text-xs">{paid ? "Bezahlt" : "Offen"}</span>
+                          <span className="text-xs">{paid ? (isDebt ? "Schulden" : "Bezahlt") : "Offen"}</span>
                         </Button>
                       </div>
+                    </div>
                     </div>
                   );
                 })}
@@ -587,13 +720,18 @@ export default function Billings() {
                         const line = qty * price;
                         const n = (it.ordered_by_name ?? "—").trim() || "—";
                         const paid = !!paidMap[n];
+                        const isDebt = !!debtMap[n];
 
                         return (
                           <div
                             key={it.list_item_id}
                             className={cn(
                               "flex items-center gap-3 p-2",
-                              paid ? "bg-emerald-50/40 dark:bg-emerald-950/10" : "bg-transparent"
+                              paid 
+                                ? isDebt
+                                    ? "bg-amber-50/40 dark:bg-amber-950/10"
+                                    : "bg-emerald-50/40 dark:bg-emerald-950/10" 
+                                : "bg-transparent"
                             )}
                           >
                             <div className="truncate">{it.product_name}</div>
@@ -601,7 +739,11 @@ export default function Billings() {
 
                             <div className="ml-auto flex items-center gap-2">
                               {paid ? (
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                isDebt ? (
+                                    <Coins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                ) : (
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                )
                               ) : (
                                 <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                               )}

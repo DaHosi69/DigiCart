@@ -34,7 +34,8 @@ const items = [
     icon: ShoppingBasket,
   },
   {
-    title: "Abrechungen",
+    title: "Abrechnungen",
+    url: "/billings",
     icon: Wallet,
   },
   {
