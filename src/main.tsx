@@ -12,6 +12,7 @@ import Products from "./home/common/Products/Products.tsx";
 import Billings from "./home/common/Billings/Billings.tsx";
 import ShoppingListEdit from "./home/common/Lists/components/ShoppingListEdit.tsx";
 import ProductEdit from "./home/common/Products/components/ProductEdit.tsx";
+import Debt from "./home/common/Debt/Debt.tsx";
 import { RouteHistoryProvider } from "./providers/RouteHistoryProvider.tsx";
 import { AppToaster } from "./hooks/useSimpleToasts.tsx";
 
@@ -64,6 +65,7 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/products" element={<Products />} />
               <Route path="/products/:id/edit" element={<ProductEdit />} />
               <Route path="/billings" element={<Billings />} />
+              <Route path="/debt" element={<Debt />} />
             </Route>
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>

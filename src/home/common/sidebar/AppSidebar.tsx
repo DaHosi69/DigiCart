@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ShoppingBasket, Home, List, Settings, LogOut, Wallet } from "lucide-react";
+import { ShoppingBasket, Home, List, Settings, LogOut, Wallet, Coins } from "lucide-react";
 
 import {
   Sidebar,
@@ -35,8 +35,12 @@ const items = [
   },
   {
     title: "Abrechungen",
-    url: "/billings",
     icon: Wallet,
+  },
+  {
+    title: "Schulden",
+    url: "/debt",
+    icon: Coins,
   },
  /* {
     title: "Einstellungen",
