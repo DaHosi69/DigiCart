@@ -522,7 +522,7 @@ export default function Billings() {
           {lists.length === 0 ? (
             <div className="text-sm text-muted-foreground">Keine abgeschlossenen Listen.</div>
           ) : (
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {lists.map((l) => (
                 <Button
                   key={l.id}

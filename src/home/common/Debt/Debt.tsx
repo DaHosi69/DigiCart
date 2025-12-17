@@ -132,8 +132,8 @@ function DebtList({
                             </div>
                         </div>
                         
-                        <div className="flex items-center gap-4">
-                             <div className="text-lg font-bold tabular-nums">
+                        <div className="flex items-center sm:gap-4">
+                             <div className="text-sm sm:text-lg font-bold tabular-nums">
                                 {group.total.toFixed(2)} {currency}
                             </div>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -185,13 +185,15 @@ function DebtRow({ item, currency, onEdit, onDelete, isChild }: { item: DebtItem
             </div>
 
             <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-            <div className={cn("font-bold tabular-nums", isChild ? "text-base" : "text-lg")}>
+            <div className={cn("font-bold tabular-nums", isChild ? "text-base" : "text-sm sm:text-lg")}>
                 {item.amount.toFixed(2)} {currency}
             </div>
             <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" onClick={() => onEdit(item)} title="Bearbeiten">
-                <Edit2 className="h-4 w-4" />
-                </Button>
+                {!item.list_id && (
+                  <Button variant="ghost" size="icon" onClick={() => onEdit(item)} title="Bearbeiten">
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button variant="ghost" size="icon" onClick={() => onDelete(item)} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30" title="Als bezahlt markieren (Löschen)">
                     <Check className="h-4 w-4" />
                 </Button>
@@ -370,7 +372,7 @@ export default function Debt() {
       
       {/* Group Logic */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="w-full sm:w-64">
+            <div className="w-full">
               <Input 
                 placeholder="Name suchen..." 
                 value={filter}

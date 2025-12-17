@@ -4,18 +4,14 @@ type ThemeCtx = { dark: boolean; toggleDark: () => void };
 const ThemeContext = createContext<ThemeCtx | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved === "dark";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
+  const [dark] = useState(true);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("theme", dark ? "dark" : "light");
-  }, [dark]);
+    document.documentElement.classList.add("dark");
+    localStorage.setItem("theme", "dark");
+  }, []);
 
-  const toggleDark = () => setDark((prev) => !prev);
+  const toggleDark = () => {};
 
   return (
     <ThemeContext.Provider value={{ dark, toggleDark }}>

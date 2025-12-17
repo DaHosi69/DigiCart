@@ -24,14 +24,7 @@ export default function Toolbar({ activeListName }: Props) {
             </h1>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {/* <Button variant="ghost" size="icon">
-            <Settings className="h-6 w-6" />
-          </Button> */}
-          <Sun className="h-5 w-5" />
-          <Switch checked={dark} onCheckedChange={toggleDark} />
-          <Moon className="h-5 w-5" />
-        </div>
+       
       </div>
     </div>
   );
