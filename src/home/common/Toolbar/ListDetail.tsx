@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
-import { useAuth } from "@/providers/AuthProvider";
 import { useSimpleToasts } from "@/hooks/useSimpleToasts";
 
 type ViewRow = {
@@ -13,6 +12,7 @@ type ViewRow = {
   quantity: number | null;
   note: string | null;
   added_at: string | null;
+  is_bought?: boolean; // NEW
   product_name: string;
   category_id: number;
   category_name: string;
@@ -25,7 +25,6 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
   const [rows, setRows] = useState<ViewRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const { isAdmin } = useAuth();
   const toast = useSimpleToasts();
 
   // --- 1) Fetch als Callback (wird von Realtime getriggert) ---
@@ -72,7 +71,7 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
         () => {
           // Bei INSERT/UPDATE/DELETE neu laden (debounced)
           scheduleFetch();
-        }
+        },
       )
       .subscribe();
 
@@ -101,27 +100,65 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
       });
     }
     return Array.from(map.entries()).sort((a, b) =>
-      a[0].localeCompare(b[0], undefined, { sensitivity: "base" })
+      a[0].localeCompare(b[0], undefined, { sensitivity: "base" }),
     );
   }, [rows]);
 
+  const toggleBought = async (item: ViewRow) => {
+    const nextVal = !item.is_bought;
+    // Optimistic Update
+    setRows((curr) =>
+      curr.map((r) =>
+        r.list_item_id === item.list_item_id ? { ...r, is_bought: nextVal } : r,
+      ),
+    );
+
+    const { error } = await supabase
+      .from("list_items")
+      .update({ is_bought: nextVal })
+      .eq("id", item.list_item_id);
+
+    if (error) {
+      console.error(error);
+      toast.error("Status konnte nicht aktualisiert werden");
+      // Rollback
+      setRows((curr) =>
+        curr.map((r) =>
+          r.list_item_id === item.list_item_id
+            ? { ...r, is_bought: !nextVal }
+            : r,
+        ),
+      );
+    }
+  };
+
   const onDelete = async (listItemId: string) => {
     if (!confirm("Willst du dieses Produkt wirklich löschen?")) return;
-    const { error } = await supabase.from("list_items").delete().eq("id", listItemId);
+    const { error } = await supabase
+      .from("list_items")
+      .delete()
+      .eq("id", listItemId);
     if (error) {
       alert(error.message);
-      toast.error('Produkt konnte nicht aus der Liste entfernt werden');
+      toast.error("Produkt konnte nicht aus der Liste entfernt werden");
       return;
     }
     // lokal optimistisch entfernen – Realtime refetcht zusätzlich
     setRows((prev) => prev.filter((r) => r.list_item_id !== listItemId));
-    toast.success('Produkt wurde erfolgreich aus der Liste entfernt');
+    toast.success("Produkt wurde erfolgreich aus der Liste entfernt");
   };
 
-  if (loading) return <div className="text-sm text-muted-foreground">Lade Listeneinträge…</div>;
+  if (loading)
+    return (
+      <div className="text-sm text-muted-foreground">Lade Listeneinträge…</div>
+    );
   if (err) return <div className="text-sm text-red-600">{err}</div>;
   if (rows.length === 0) {
-    return <div className="text-sm flex justify-center text-muted-foreground">Noch keine Produkte in dieser Liste.</div>;
+    return (
+      <div className="text-sm flex justify-center text-muted-foreground">
+        Noch keine Produkte in dieser Liste.
+      </div>
+    );
   }
 
   return (
@@ -135,28 +172,45 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
           {items.map((it) => (
             <div
               key={it.list_item_id}
-              className="flex items-center gap-3 rounded-md p-2 border"
+              className={`flex items-center gap-3 rounded-md p-2 border transition-all ${
+                it.is_bought
+                  ? "bg-muted/50 border-transparent opacity-60"
+                  : "bg-card"
+              }`}
+              onClick={() => toggleBought(it)}
             >
-              <div className="truncate">{it.product_name}</div>
+              <input
+                type="checkbox"
+                checked={!!it.is_bought}
+                onChange={() => toggleBought(it)}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                className="h-5 w-5 cursor-pointer accent-primary"
+              />
+
+              <div
+                className={`truncate ${it.is_bought ? "line-through opacity-50" : ""}`}
+              >
+                {it.product_name}
+              </div>
 
               <div className="text-xs opacity-70">x {it.quantity ?? 1}</div>
 
               <div className="ml-auto text-xs opacity-70">
                 {it.ordered_by_name?.trim() || "—"}
               </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-red-500 hover:text-red-600"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void onDelete(it.list_item_id);
-                  }}
-                  aria-label="Löschen"
-                  title="List-Item löschen"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-red-500 hover:text-red-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void onDelete(it.list_item_id);
+                }}
+                aria-label="Löschen"
+                title="List-Item löschen"
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
             </div>
           ))}
         </div>
