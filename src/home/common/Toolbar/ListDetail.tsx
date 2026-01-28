@@ -28,23 +28,26 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
   const toast = useSimpleToasts();
 
   // --- 1) Fetch als Callback (wird von Realtime getriggert) ---
-  const fetchRows = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
-    const { data, error } = await supabase
-      .from("v_list_items_with_order")
-      .select("*")
-      .eq("list_id", listId)
-      .order("added_at", { ascending: false });
+  const fetchRows = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      setErr(null);
+      const { data, error } = await supabase
+        .from("v_list_items_with_order")
+        .select("*")
+        .eq("list_id", listId)
+        .order("added_at", { ascending: false });
 
-    if (error) setErr(error.message);
-    setRows((data as ViewRow[]) ?? []);
-    setLoading(false);
-  }, [listId]);
+      if (error) setErr(error.message);
+      setRows((data as ViewRow[]) ?? []);
+      setLoading(false);
+    },
+    [listId],
+  );
 
   // --- 2) Initial/refreshKey Load ---
   useEffect(() => {
-    void fetchRows();
+    void fetchRows(false);
   }, [fetchRows, refreshKey]);
 
   // --- 3) Realtime-Subscription + Debounce gegen Event-Flut ---
@@ -53,7 +56,7 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(() => {
       debounceRef.current = null;
-      void fetchRows();
+      void fetchRows(true); // Silent reload on realtime
     }, 150); // 150ms debounce
   }, [fetchRows]);
 

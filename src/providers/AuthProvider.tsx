@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { LoadingScreen } from "@/shared/components/LoadingScreen";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 type Role = "user" | "admin";
@@ -51,40 +52,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     (async () => {
-      const { data } = await supabase.auth.getSession();
+      const minLoadTime = new Promise((resolve) => setTimeout(resolve, 850)); // Minimum 2 seconds loading
+      const loadSession = supabase.auth.getSession();
+
+      const [_, { data }] = await Promise.all([minLoadTime, loadSession]);
+
       if (mounted) {
         setSession(data.session ?? null);
         setBooting(false); // Session ist jetzt initial bekannt (auch wenn null)
       }
     })();
 
-  
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      (event: AuthChangeEvent, s: Session |  null) => {
+        switch (event) {
+          case "INITIAL_SESSION":
+          case "SIGNED_IN":
+          case "TOKEN_REFRESHED":
+          case "USER_UPDATED":
+            setSession(s ?? null);
+            break;
 
-const { data: sub } = supabase.auth.onAuthStateChange(
-  (event: AuthChangeEvent, s: Session | null) => {
-    switch (event) {
-      case "INITIAL_SESSION":
-      case "SIGNED_IN":
-      case "TOKEN_REFRESHED":
-      case "USER_UPDATED":
-        setSession(s ?? null);
-        break;
+          case "SIGNED_OUT":
+            setSession(null);
+            setProfile(null);
+            break;
 
-      case "SIGNED_OUT":
-        setSession(null);
-        setProfile(null);
-        break;
+          case "PASSWORD_RECOVERY":
+            // optional: Reset-UI öffnen
+            break;
 
-      case "PASSWORD_RECOVERY":
-        // optional: Reset-UI öffnen
-        break;
-
-      default:
-        // nothing
-        break;
-    }
-  }
-);
+          default:
+            // nothing
+            break;
+        }
+      },
+    );
 
     return () => {
       mounted = false;
@@ -141,17 +144,13 @@ const { data: sub } = supabase.auth.onAuthStateChange(
         // Navigation machst du am Button (navigate("/login"))
       },
     }),
-    [booting, loading, session, profile]
+    [booting, loading, session, profile],
   );
 
   return (
     <AuthCtx.Provider value={value}>
       {/* Während booting NICHT redirecten → sonst flackern */}
-      {booting ? (
-        <div className="p-6 text-sm text-muted-foreground">Session wird geladen…</div>
-      ) : (
-        children
-      )}
+      {booting ? <LoadingScreen /> : children}
     </AuthCtx.Provider>
   );
 }

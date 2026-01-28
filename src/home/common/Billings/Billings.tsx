@@ -6,7 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, Loader2, XCircle, ArrowRightLeft, Coins } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  XCircle,
+  ArrowRightLeft,
+  Coins,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Tables = Database["public"]["Tables"];
@@ -82,78 +88,83 @@ export default function Billings() {
     setLoading(false);
   }, []);
 
-  const loadRowsAndFlags = useCallback(async (listId: string) => {
-    setLoadingRows(true);
-    setErr(null);
+  const loadRowsAndFlags = useCallback(
+    async (listId: string, silent = false) => {
+      if (!silent) setLoadingRows(true);
+      setErr(null);
 
-    // a) Items der Liste
-    const { data: vrows, error: vErr } = await supabase
-      .from("v_list_items_with_order")
-      .select("*")
-      .eq("list_id", listId)
-      .order("added_at", { ascending: true });
+      // a) Items der Liste
+      const { data: vrows, error: vErr } = await supabase
+        .from("v_list_items_with_order")
+        .select("*")
+        .eq("list_id", listId)
+        .order("added_at", { ascending: true });
 
-    if (vErr) {
-      setErr(vErr.message);
-      setRows([]);
-      setRows([]);
-      setPriceMap({});
-      setPaidMap({});
-      setDebtMap({});
-      setLoadingRows(false);
-      return;
-    }
-
-    const vr = (vrows as ViewRow[]) ?? [];
-    setRows(vr);
-
-    // b) Preise der referenzierten Produkte
-    const productIds = Array.from(new Set(vr.map((r) => r.product_id)));
-    productIdSetRef.current = new Set(productIds);
-
-    if (productIds.length > 0) {
-      const { data: prices, error: pErr } = await supabase
-        .from("products")
-        .select("id, price, currency_code")
-        .in("id", productIds);
-
-      if (pErr) {
-        setErr(pErr.message);
+      if (vErr) {
+        setErr(vErr.message);
+        setRows([]);
+        setRows([]);
         setPriceMap({});
-      } else {
-        const pm: PriceMap = {};
-        (prices as PriceInfo[]).forEach((p) => {
-          pm[p.id] = {
-            price: Number(p.price ?? 0),
-            currency: p.currency_code ?? "EUR",
-          };
-        });
-        setPriceMap(pm);
+        setPaidMap({});
+        setDebtMap({});
+        setLoadingRows(false);
+        return;
       }
-    } else {
-      setPriceMap({});
-    }
 
-    // c) Flags
-    const { data: flags, error: fErr } = await supabase
-      .from("billing_flags")
-      .select("payer_name,is_paid,is_debt")
-      .eq("list_id", listId);
+      const vr = (vrows as ViewRow[]) ?? [];
+      setRows(vr);
 
-    if (!fErr) {
-      const map: Record<string, boolean> = {};
-      const dMap: Record<string, boolean> = {};
-      (flags as Pick<BillingFlag, "payer_name" | "is_paid" | "is_debt">[]).forEach((f) => {
-        const key = (f.payer_name ?? "").trim() || "—";
-        map[key] = !!f.is_paid;
-        dMap[key] = !!f.is_debt;
-      });
-      setPaidMap(map);
-      setDebtMap(dMap);
-    }
+      // b) Preise der referenzierten Produkte
+      const productIds = Array.from(new Set(vr.map((r) => r.product_id)));
+      productIdSetRef.current = new Set(productIds);
 
-    setLoadingRows(false);
-  }, []);
+      if (productIds.length > 0) {
+        const { data: prices, error: pErr } = await supabase
+          .from("products")
+          .select("id, price, currency_code")
+          .in("id", productIds);
+
+        if (pErr) {
+          setErr(pErr.message);
+          setPriceMap({});
+        } else {
+          const pm: PriceMap = {};
+          (prices as PriceInfo[]).forEach((p) => {
+            pm[p.id] = {
+              price: Number(p.price ?? 0),
+              currency: p.currency_code ?? "EUR",
+            };
+          });
+          setPriceMap(pm);
+        }
+      } else {
+        setPriceMap({});
+      }
+
+      // c) Flags
+      const { data: flags, error: fErr } = await supabase
+        .from("billing_flags")
+        .select("payer_name,is_paid,is_debt")
+        .eq("list_id", listId);
+
+      if (!fErr) {
+        const map: Record<string, boolean> = {};
+        const dMap: Record<string, boolean> = {};
+        (
+          flags as Pick<BillingFlag, "payer_name" | "is_paid" | "is_debt">[]
+        ).forEach((f) => {
+          const key = (f.payer_name ?? "").trim() || "—";
+          map[key] = !!f.is_paid;
+          dMap[key] = !!f.is_debt;
+        });
+        setPaidMap(map);
+        setDebtMap(dMap);
+      }
+
+      setLoadingRows(false);
+    },
+    [],
+  );
 
   // --- Debounced Scheduler ---
   const scheduleListsReload = useCallback(() => {
@@ -173,10 +184,10 @@ export default function Billings() {
         itemsDebounceRef.current = null;
       }
       itemsDebounceRef.current = window.setTimeout(() => {
-        loadRowsAndFlags(listId);
+        loadRowsAndFlags(listId, true);
       }, 200);
     },
-    [loadRowsAndFlags]
+    [loadRowsAndFlags],
   );
 
   const scheduleFlagsReload = useCallback(
@@ -186,10 +197,10 @@ export default function Billings() {
         flagsDebounceRef.current = null;
       }
       flagsDebounceRef.current = window.setTimeout(() => {
-        loadRowsAndFlags(listId);
+        loadRowsAndFlags(listId, true);
       }, 150);
     },
-    [loadRowsAndFlags]
+    [loadRowsAndFlags],
   );
 
   const scheduleProductsReload = useCallback(
@@ -201,10 +212,10 @@ export default function Billings() {
         prodsDebounceRef.current = null;
       }
       prodsDebounceRef.current = window.setTimeout(() => {
-        if (listId) loadRowsAndFlags(listId);
+        if (listId) loadRowsAndFlags(listId, true);
       }, 250);
     },
-    [loadRowsAndFlags]
+    [loadRowsAndFlags],
   );
 
   // --- Initial + Realtime Listen (abgeschlossene) ---
@@ -216,7 +227,7 @@ export default function Billings() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "shopping_lists" },
-        () => scheduleListsReload()
+        () => scheduleListsReload(),
       )
       .subscribe();
 
@@ -259,7 +270,7 @@ export default function Billings() {
         },
         (payload) => {
           scheduleFlagsReload(listId);
-        }
+        },
       )
       .subscribe();
 
@@ -287,7 +298,7 @@ export default function Billings() {
           table: "list_items",
           filter: `list_id=eq.${listId}`,
         },
-        () => scheduleRowsReload(listId)
+        () => scheduleRowsReload(listId),
       )
       .subscribe();
 
@@ -313,7 +324,7 @@ export default function Billings() {
         (payload) => {
           const pid = (payload.new as Product)?.id;
           scheduleProductsReload(listId, pid);
-        }
+        },
       )
       .subscribe();
 
@@ -328,7 +339,10 @@ export default function Billings() {
 
   // --- Aggregationen ---
   const totals = useMemo(() => {
-    const map = new Map<string, { sum: number; count: number; currency: string }>();
+    const map = new Map<
+      string,
+      { sum: number; count: number; currency: string }
+    >();
     for (const r of rows) {
       if (r.category_name?.toLowerCase() === "extra") continue;
 
@@ -348,7 +362,9 @@ export default function Billings() {
     const nf = nameFilter.trim().toLowerCase();
     return Array.from(map.entries())
       .filter(([n]) => (nf ? n.toLowerCase().includes(nf) : true))
-      .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: "base" }));
+      .sort((a, b) =>
+        a[0].localeCompare(b[0], undefined, { sensitivity: "base" }),
+      );
   }, [rows, priceMap, nameFilter]);
 
   const sumOverview = useMemo(() => {
@@ -387,23 +403,28 @@ export default function Billings() {
 
       // If it was a debt, remove it from debts table
       if (isDebt) {
-         const { error: delError } = await supabase
+        const { error: delError } = await supabase
           .from("debts")
           .delete()
           .eq("list_id", selectedList.id)
           .eq("payer_name", key);
-        
+
         if (delError) {
-            console.error("Failed to delete debt", delError);
-            // We continue anyway to update the UI flag
+          console.error("Failed to delete debt", delError);
+          // We continue anyway to update the UI flag
         }
       }
 
       const { data, error } = await supabase
         .from("billing_flags")
         .upsert(
-          { list_id: selectedList.id, payer_name: key, is_paid: nextPaid, is_debt: false },
-          { onConflict: "list_id,payer_name" }
+          {
+            list_id: selectedList.id,
+            payer_name: key,
+            is_paid: nextPaid,
+            is_debt: false,
+          },
+          { onConflict: "list_id,payer_name" },
         )
         .select()
         .single();
@@ -422,7 +443,11 @@ export default function Billings() {
   };
 
   const moveToDebt = async (name: string, amount: number) => {
-    if (!confirm(`Soll der Betrag von ${amount.toFixed(2)} EUR für "${name}" wirklich zu den Schulden hinzugefügt werden? Der Eintrag wird hier als bezahlt markiert.`)) {
+    if (
+      !confirm(
+        `Soll der Betrag von ${amount.toFixed(2)} EUR für "${name}" wirklich zu den Schulden hinzugefügt werden? Der Eintrag wird hier als bezahlt markiert.`,
+      )
+    ) {
       return;
     }
 
@@ -444,25 +469,25 @@ export default function Billings() {
 
       if (existing) {
         // Update existing
-        // Option: Overwrite amount or add? Usually "Move to debt" implies the total bill amount. 
+        // Option: Overwrite amount or add? Usually "Move to debt" implies the total bill amount.
         // If the user already moved it, maybe they want to update it.
         // I will overwrite the amount to match the current bill sum.
         const { error: updateError } = await supabase
           .from("debts")
           .update({ amount: amount })
           .eq("id", existing.id);
-        
+
         if (updateError) throw updateError;
       } else {
         // Insert new with link
-        const { error: insertError } = await supabase
-          .from("debts")
-          .insert([{ 
-            name: key, 
+        const { error: insertError } = await supabase.from("debts").insert([
+          {
+            name: key,
             amount: amount,
             list_id: selectedList.id,
-            payer_name: key
-          }]);
+            payer_name: key,
+          },
+        ]);
 
         if (insertError) throw insertError;
       }
@@ -471,8 +496,13 @@ export default function Billings() {
       const { error: flagError } = await supabase
         .from("billing_flags")
         .upsert(
-          { list_id: selectedList.id, payer_name: key, is_paid: true, is_debt: true },
-          { onConflict: "list_id,payer_name" }
+          {
+            list_id: selectedList.id,
+            payer_name: key,
+            is_paid: true,
+            is_debt: true,
+          },
+          { onConflict: "list_id,payer_name" },
         );
 
       if (flagError) throw flagError;
@@ -480,7 +510,6 @@ export default function Billings() {
       // Optimistic Update
       setPaidMap((m) => ({ ...m, [key]: true }));
       setDebtMap((m) => ({ ...m, [key]: true }));
-
     } catch (e: any) {
       alert(e?.message ?? "Fehler beim Verschieben zu Schulden");
     } finally {
@@ -512,7 +541,8 @@ export default function Billings() {
       <div className="mb-3">
         <h1 className="text-2xl font-semibold">Abrechnungen</h1>
         <p className="text-sm text-muted-foreground">
-          Wähle eine abgeschlossene Einkaufsliste und sieh die Summen je Bestellname (Zahler). Markiere Einträge als bezahlt.
+          Wähle eine abgeschlossene Einkaufsliste und sieh die Summen je
+          Bestellname (Zahler). Markiere Einträge als bezahlt.
         </p>
       </div>
 
@@ -520,7 +550,9 @@ export default function Billings() {
       <Card className="mb-4">
         <CardContent className="p-4">
           {lists.length === 0 ? (
-            <div className="text-sm text-muted-foreground">Keine abgeschlossenen Listen.</div>
+            <div className="text-sm text-muted-foreground">
+              Keine abgeschlossenen Listen.
+            </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {lists.map((l) => (
@@ -549,7 +581,9 @@ export default function Billings() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-md border p-3">
-                <div className="text-xs uppercase tracking-wide opacity-70">Gesamt</div>
+                <div className="text-xs uppercase tracking-wide opacity-70">
+                  Gesamt
+                </div>
                 <div className="mt-1 text-xl font-semibold tabular-nums">
                   {sumOverview.total.toFixed(2)} {sumOverview.currency}
                 </div>
@@ -557,7 +591,9 @@ export default function Billings() {
               <div className="rounded-md border p-3 bg-emerald-50 dark:bg-emerald-950/20">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <div className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Bezahlt</div>
+                  <div className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    Bezahlt
+                  </div>
                 </div>
                 <div className="mt-1 text-lg font-medium tabular-nums text-emerald-700 dark:text-emerald-300">
                   {sumOverview.paid.toFixed(2)} {sumOverview.currency}
@@ -566,7 +602,9 @@ export default function Billings() {
               <div className="rounded-md border p-3 bg-rose-50/60 dark:bg-rose-950/20">
                 <div className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                  <div className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-300">Offen</div>
+                  <div className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                    Offen
+                  </div>
                 </div>
                 <div className="mt-1 text-lg font-medium tabular-nums text-rose-700 dark:text-rose-300">
                   {sumOverview.open.toFixed(2)} {sumOverview.currency}
@@ -612,16 +650,23 @@ export default function Billings() {
                       className={cn(
                         "flex items-center justify-between p-3 gap-3",
                         "border-b last:border-b-0 transition-colors",
-                        paid 
-                          ? isDebt 
-                              ? "bg-amber-50 dark:bg-amber-950/30" 
-                              : "bg-emerald-50 dark:bg-emerald-950/30"
-                          : "bg-rose-50/40 dark:bg-rose-950/20"
+                        paid
+                          ? isDebt
+                            ? "bg-amber-50 dark:bg-amber-950/30"
+                            : "bg-emerald-50 dark:bg-emerald-950/30"
+                          : "bg-rose-50/40 dark:bg-rose-950/20",
                       )}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <Badge variant={isDebt ? "outline" : "secondary"} className={cn("truncate", isDebt && "border-amber-400 text-amber-700 dark:text-amber-400")}>
-                           {name}
+                        <Badge
+                          variant={isDebt ? "outline" : "secondary"}
+                          className={cn(
+                            "truncate",
+                            isDebt &&
+                              "border-amber-400 text-amber-700 dark:text-amber-400",
+                          )}
+                        >
+                          {name}
                         </Badge>
                         <span className="hidden md:block text-xs text-muted-foreground whitespace-nowrap">
                           {t.count} Produkte
@@ -629,64 +674,81 @@ export default function Billings() {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <div className={cn("font-medium tabular-nums", 
-                            paid 
-                             ? isDebt 
-                               ? "text-amber-700 dark:text-amber-400"
-                               : "text-emerald-700 dark:text-emerald-300" 
-                             : "")}>
+                        <div
+                          className={cn(
+                            "font-medium tabular-nums",
+                            paid
+                              ? isDebt
+                                ? "text-amber-700 dark:text-amber-400"
+                                : "text-emerald-700 dark:text-emerald-300"
+                              : "",
+                          )}
+                        >
                           {t.sum.toFixed(2)} {t.currency}
                         </div>
 
-                      <div className="flex items-center gap-2">
-                        {/* Move to Debt Button - only show if NOT paid */}
-                        {!paid && (
+                        <div className="flex items-center gap-2">
+                          {/* Move to Debt Button - only show if NOT paid */}
+                          {!paid && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => moveToDebt(name, t.sum)}
+                              disabled={isBusy || !!movingToDebt[name]}
+                              className="border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 gap-1"
+                              title="Zu Schulden hinzufügen & als bezahlt markieren"
+                            >
+                              {movingToDebt[name] ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ArrowRightLeft className="h-4 w-4" />
+                              )}
+                              <span className="hidden sm:inline">
+                                Zu Schuld
+                              </span>
+                            </Button>
+                          )}
+
                           <Button
-                            variant="outline"
+                            variant={paid ? "secondary" : "outline"}
                             size="sm"
-                            onClick={() => moveToDebt(name, t.sum)}
+                            onClick={() => togglePaid(name)}
                             disabled={isBusy || !!movingToDebt[name]}
-                            className="border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 gap-1"
-                            title="Zu Schulden hinzufügen & als bezahlt markieren"
-                          >
-                            {movingToDebt[name] ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <ArrowRightLeft className="h-4 w-4" />
+                            className={cn(
+                              "gap-1",
+                              paid
+                                ? isDebt
+                                  ? "border-amber-300 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/20"
+                                  : "border-emerald-300 dark:border-emerald-800"
+                                : "border-rose-300 dark:border-rose-800",
                             )}
-                            <span className="hidden sm:inline">Zu Schuld</span>
-                          </Button>
-                        )}
-                        
-                        <Button
-                          variant={paid ? "secondary" : "outline"}
-                          size="sm"
-                          onClick={() => togglePaid(name)}
-                          disabled={isBusy || !!movingToDebt[name]}
-                          className={cn("gap-1", 
-                            paid 
-                              ? isDebt 
-                                ? "border-amber-300 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/20" 
-                                : "border-emerald-300 dark:border-emerald-800" 
-                              : "border-rose-300 dark:border-rose-800"
-                          )}
-                          title={paid ? "Als unbezahlt markieren" : "Als bezahlt markieren"} 
-                        >
-                          {isBusy ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : paid ? (
-                            isDebt ? (
+                            title={
+                              paid
+                                ? "Als unbezahlt markieren"
+                                : "Als bezahlt markieren"
+                            }
+                          >
+                            {isBusy ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : paid ? (
+                              isDebt ? (
                                 <Coins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                            ) : (
+                              ) : (
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                            )
-                          ) : (
-                            <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                          )}
-                          <span className="text-xs">{paid ? (isDebt ? "Schulden" : "Bezahlt") : "Offen"}</span>
-                        </Button>
+                              )
+                            ) : (
+                              <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                            )}
+                            <span className="text-xs">
+                              {paid
+                                ? isDebt
+                                  ? "Schulden"
+                                  : "Bezahlt"
+                                : "Offen"}
+                            </span>
+                          </Button>
+                        </div>
                       </div>
-                    </div>
                     </div>
                   );
                 })}
@@ -706,12 +768,16 @@ export default function Billings() {
                 Lade Details…
               </div>
             ) : rows.length === 0 ? (
-              <div className="text-sm text-muted-foreground">Keine Einträge.</div>
+              <div className="text-sm text-muted-foreground">
+                Keine Einträge.
+              </div>
             ) : (
               <div className="space-y-5">
                 {byCategory.map(([category, items]) => (
                   <div key={category} className="space-y-2">
-                    <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{category}</div>
+                    <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+                      {category}
+                    </div>
                     <div className="rounded-md border divide-y max-h-64 overflow-y-auto">
                       {items.map((it) => {
                         const qty = Number(it.quantity ?? 1);
@@ -727,11 +793,11 @@ export default function Billings() {
                             key={it.list_item_id}
                             className={cn(
                               "flex items-center gap-3 p-2",
-                              paid 
+                              paid
                                 ? isDebt
-                                    ? "bg-amber-50/40 dark:bg-amber-950/10"
-                                    : "bg-emerald-50/40 dark:bg-emerald-950/10" 
-                                : "bg-transparent"
+                                  ? "bg-amber-50/40 dark:bg-amber-950/10"
+                                  : "bg-emerald-50/40 dark:bg-emerald-950/10"
+                                : "bg-transparent",
                             )}
                           >
                             <div className="truncate">{it.product_name}</div>
@@ -740,14 +806,16 @@ export default function Billings() {
                             <div className="ml-auto flex items-center gap-2">
                               {paid ? (
                                 isDebt ? (
-                                    <Coins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                  <Coins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                                 ) : (
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                                 )
                               ) : (
                                 <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                               )}
-                              <div className="text-xs opacity-70">{n || "—"}</div>
+                              <div className="text-xs opacity-70">
+                                {n || "—"}
+                              </div>
                               <div className="ml-3 text-sm tabular-nums">
                                 {line.toFixed(2)} {curr}
                               </div>

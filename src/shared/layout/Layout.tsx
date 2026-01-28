@@ -7,12 +7,13 @@ export default function Layout() {
     <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
-        <main className="flex-1 bg-gradient-to-t from-white to-gray-500
+        <main
+          className="flex-1 bg-gradient-to-t from-white to-gray-500
            dark:bg-gradient-to-t dark:from-zinc-900 dark:to-zinc-700
            transition-colors duration-500"
->
+        >
           <div className="p-2">
-            <SidebarTrigger />
+            <SidebarTrigger className="w-10 h-10 [&_svg]:!size-7" />
           </div>
           <div className="p-6">
             <Outlet />
