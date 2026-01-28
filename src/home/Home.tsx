@@ -347,7 +347,7 @@ export default function Home() {
 
               <div className="text-sm font-medium">Produkte auswählen</div>
 
-              <div className="grid gap-2 max-h-40 overflow-y-auto pr-1">
+              <div className="grid gap-2 max-h-70 overflow-y-auto pr-1">
                 {filteredProducts.length === 0 && (
                   <>
                     <div className="text-xs text-muted-foreground">
