@@ -8,6 +8,14 @@ import NewProductForm from "./components/NewProductForm";
 import { ProductCard } from "./components/ProductCard";
 import { Input } from "@/components/ui/input"; // <-- für die Suche
 import { useSimpleToasts } from "@/hooks/useSimpleToasts";
+import { Button } from "@/components/ui/button";
+import { Plus, ShoppingBasket } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Product = Database["public"]["Tables"]["products"]["Row"];
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -17,12 +25,12 @@ export default function Products() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const toast = useSimpleToasts();
-  
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // --- Suche (wie in Home) ---
   const [productSearch, setProductSearch] = useState<string>("");
@@ -35,7 +43,9 @@ export default function Products() {
   const loadProducts = useCallback(async () => {
     const { data, error } = await supabase
       .from("products")
-      .select("id,name,unit,category_id,price,currency_code,created_at,is_active")
+      .select(
+        "id,name,unit,category_id,price,currency_code,created_at,is_active",
+      )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
     setProducts((data as Product[]) ?? []);
@@ -86,7 +96,7 @@ export default function Products() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "products" },
-        () => scheduleProductsReload()
+        () => scheduleProductsReload(),
       )
       .subscribe();
 
@@ -96,7 +106,7 @@ export default function Products() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "categories" },
-        () => scheduleCategoriesReload()
+        () => scheduleCategoriesReload(),
       )
       .subscribe();
 
@@ -119,16 +129,19 @@ export default function Products() {
     const { data, error } = await supabase
       .from("products")
       .insert(p)
-      .select("id,name,unit,category_id,price,currency_code,created_at,is_active")
+      .select(
+        "id,name,unit,category_id,price,currency_code,created_at,is_active",
+      )
       .single();
     if (error) {
-      toast.error('Produkt konnte nicht hinzugefügt werden');
+      toast.error("Produkt konnte nicht hinzugefügt werden");
       setError(error.message);
       return;
     }
     // Optimistisch einfügen – Realtime lädt zusätzlich nach
     setProducts((prev) => (data ? [data as Product, ...prev] : prev));
-    toast.success('Produkt wurde erfolgreich hinzugefügt');
+    toast.success("Produkt wurde erfolgreich hinzugefügt");
+    setIsDialogOpen(false);
   };
 
   const remove = async (id: string) => {
@@ -139,11 +152,11 @@ export default function Products() {
     setProducts((curr) => curr.filter((p) => p.id !== id));
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) {
-      toast.error('Produkt konnte nicht gelöscht werden');
+      toast.error("Produkt konnte nicht gelöscht werden");
       setError(error.message);
       setProducts(prev);
     }
-    toast.success('Produkt wurde erfolgreich gelöscht');
+    toast.success("Produkt wurde erfolgreich gelöscht");
   };
 
   const openEdit = (id: string) => navigate(`/products/${id}/edit`);
@@ -156,11 +169,33 @@ export default function Products() {
   }, [productSearch, products]);
 
   return (
-    <>
-      <NewProductForm onSave={addNew} />
+    <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <ShoppingBasket className="h-6 w-6 text-primary" />
+            Produkte
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Verwalte deine Produkt-Datenbank.
+          </p>
+        </div>
+        <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" /> Neues Produkt
+        </Button>
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Neues Produkt erstellen</DialogTitle>
+          </DialogHeader>
+          <NewProductForm onSave={addNew} />
+        </DialogContent>
+      </Dialog>
 
       {/* Produkt-Suche (wie in Home) */}
-      <div className="mt-4 space-y-1">
+      <div className="space-y-1">
         <label htmlFor="product-search" className="text-l font-medium">
           Produkt Suchen
         </label>
@@ -172,12 +207,15 @@ export default function Products() {
         />
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground mt-4">Lade Produkte…</p>}
+      {loading && (
+        <p className="text-sm text-muted-foreground mt-4">Lade Produkte…</p>
+      )}
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 
       {/* Optional: kleiner Hinweis zur Trefferanzahl */}
       <div className="mt-2 text-xs text-muted-foreground">
-        {filteredProducts.length} {filteredProducts.length === 1 ? "Treffer" : "Treffer"}
+        {filteredProducts.length}{" "}
+        {filteredProducts.length === 1 ? "Treffer" : "Treffer"}
       </div>
 
       <div className="mt-2 grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -197,6 +235,6 @@ export default function Products() {
           ))
         )}
       </div>
-    </>
+    </div>
   );
 }

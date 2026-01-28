@@ -1,11 +1,10 @@
-import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   CalendarDays,
   User,
-  MoreVertical,
   Dot,
   CheckCircle2,
   Archive,
@@ -42,13 +41,17 @@ export function ShoppingListCard({
   list,
   onClick,
   onMenu,
-  onDelete, // 👈 neue Prop
+  onDelete,
+  onOpen,
+  onToggle,
   className,
 }: {
   list: ShoppingList;
   onClick?: () => void;
   onMenu?: () => void;
-  onDelete?: (id: string) => void; // 👈 Callback für Delete
+  onDelete?: (id: string) => void;
+  onOpen?: () => void;
+  onToggle?: () => void;
   className?: string;
 }) {
   const { isAdmin } = useAuth();
@@ -58,7 +61,7 @@ export function ShoppingListCard({
       className={cn(
         "group cursor-pointer transition hover:shadow-md",
         !list.is_active && "opacity-90",
-        className
+        className,
       )}
       onClick={onClick}
       role="button"
@@ -85,13 +88,6 @@ export function ShoppingListCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            <Badge
-              variant={list.is_active ? "secondary" : "outline"}
-              className="hidden sm:inline-flex"
-            >
-              {list.is_active ? "Aktiv" : "Archiviert"}
-            </Badge>
-
             {isAdmin && (
               <Button
                 variant="ghost"
@@ -99,7 +95,7 @@ export function ShoppingListCard({
                 className="text-red-500 hover:text-red-600"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDelete?.(list.id); // 👈 ruft Delete auf
+                  onDelete?.(list.id);
                 }}
                 aria-label="Löschen"
               >
@@ -115,7 +111,7 @@ export function ShoppingListCard({
                 e.stopPropagation();
                 onMenu?.();
               }}
-              aria-label="Menü"
+              aria-label="Bearbeiten"
             >
               <Edit className="h-5 w-5" />
             </Button>
@@ -134,20 +130,40 @@ export function ShoppingListCard({
               : "Unbekannt"}
           </span>
         </div>
- 
-        <div className="mt-3 flex items-center justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            className="group-hover:border-primary"
-            onClick={(e) => {
-                e.stopPropagation();
-                onMenu?.();
-              }}
+
+        <div className="mt-4 flex items-center justify-between">
+          <div
+            className="flex items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
           >
-            Öffnen
-            <ChevronRight className="ml-1 h-4 w-4" />
-          </Button>
+            <Switch
+              id={`switch-${list.id}`}
+              checked={list.is_active}
+              onCheckedChange={() => onToggle?.()}
+              disabled={!isAdmin}
+            />
+            <Label
+              htmlFor={`switch-${list.id}`}
+              className="text-xs text-muted-foreground cursor-pointer"
+            >
+              {list.is_active ? "Aktiv" : "Inaktiv"}
+            </Label>
+          </div>
+
+          {list.is_active && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="group-hover:border-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen?.();
+              }}
+            >
+              Öffnen
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

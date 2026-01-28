@@ -8,6 +8,14 @@ import type { Database } from "@/shared/classes/database.types";
 import { ShoppingListCard } from "./components/ShoppingListCard";
 import { Input } from "@/components/ui/input";
 import { useSimpleToasts } from "@/hooks/useSimpleToasts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Plus, List } from "lucide-react";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
 
@@ -18,6 +26,7 @@ export default function Lists() {
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const toast = useSimpleToasts();
 
   // 🔎 Suche (wie in Products)
@@ -61,12 +70,13 @@ export default function Lists() {
 
     if (error) {
       console.error(error);
-      toast.error('Hinzufügen der neuen Liste fehlgeschlagen');
+      toast.error("Hinzufügen der neuen Liste fehlgeschlagen");
       setError(error.message);
       return;
     }
-    toast.success('Liste wurde erfolgreich hinzugefügt');
+    toast.success("Liste wurde erfolgreich hinzugefügt");
     setLists((prev) => (data ? [data, ...prev] : prev));
+    setIsDialogOpen(false);
   };
 
   const deleteList = async (id: string) => {
@@ -77,17 +87,48 @@ export default function Lists() {
     const prev = lists;
     setLists((curr) => curr.filter((l) => l.id !== id));
 
-    const { error } = await supabase.from("shopping_lists").delete().eq("id", id);
+    const { error } = await supabase
+      .from("shopping_lists")
+      .delete()
+      .eq("id", id);
     if (error) {
-      toast.error('Liste konnte nicht gelöscht werden');
+      toast.error("Liste konnte nicht gelöscht werden");
       console.error(error);
       setError(error.message);
       setLists(prev); // Rollback
     }
-    toast.success('Liste erfolgreich gelöscht');
+    toast.success("Liste erfolgreich gelöscht");
+  };
+
+  const toggleListStatus = async (list: ShoppingList) => {
+    if (!isAdmin) return;
+    const newStatus = !list.is_active;
+
+    // Optimistic update
+    setLists((curr) =>
+      curr.map((l) => (l.id === list.id ? { ...l, is_active: newStatus } : l)),
+    );
+
+    const { error } = await supabase
+      .from("shopping_lists")
+      .update({ is_active: newStatus })
+      .eq("id", list.id);
+
+    if (error) {
+      toast.error("Status konnte nicht geändert werden");
+      // Rollback
+      setLists((curr) =>
+        curr.map((l) =>
+          l.id === list.id ? { ...l, is_active: !newStatus } : l,
+        ),
+      );
+    } else {
+      toast.success(newStatus ? "Liste aktiviert" : "Liste deaktiviert");
+    }
   };
 
   const openDetails = (id: string) => navigate(`/lists/${id}/edit`);
+  const openList = (id: string) => navigate(`/home/lists/${id}`);
 
   // 🔎 Gefilterte Listen (Name + Notes, case-insensitive)
   const filteredLists = useMemo(() => {
@@ -101,14 +142,32 @@ export default function Lists() {
   }, [listSearch, lists]);
 
   return (
-    <>
-      {isAdmin && (
-        <NewShoppingListForm
-          onBack={() => navigate(-1)}
-          onCancel={() => navigate("/home")}
-          onSave={addNewList}
-        />
-      )}
+    <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <List className="h-6 w-6 text-primary" />
+            Einkaufslisten
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Verwalte deine Einkaufslisten.
+          </p>
+        </div>
+        {isAdmin && (
+          <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Neue Liste
+          </Button>
+        )}
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Neue Einkaufsliste erstellen</DialogTitle>
+          </DialogHeader>
+          <NewShoppingListForm onSave={addNewList} />
+        </DialogContent>
+      </Dialog>
 
       {/* Suchfeld */}
       <div className="mt-4 space-y-1">
@@ -130,7 +189,8 @@ export default function Lists() {
 
       {/* Trefferanzahl */}
       <div className="mt-2 text-xs text-muted-foreground">
-        {filteredLists.length} {filteredLists.length === 1 ? "Treffer" : "Treffer"}
+        {filteredLists.length}{" "}
+        {filteredLists.length === 1 ? "Treffer" : "Treffer"}
       </div>
 
       <div className="mt-4 grid gap-3">
@@ -144,11 +204,13 @@ export default function Lists() {
               key={list.id}
               list={list}
               onMenu={() => openDetails(list.id)}
+              onOpen={() => openList(list.id)}
               onDelete={deleteList}
+              onToggle={() => toggleListStatus(list)}
             />
           ))
         )}
       </div>
-    </>
+    </div>
   );
 }
