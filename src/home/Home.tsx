@@ -331,7 +331,7 @@ export default function Home() {
 
         {/* Rechte Spalte nur wenn :id */}
         {!pickerActive && activeList && (
-          <Card className="max-h-[90vh] sm:max-h-[calc(90vh-200px)]">
+          <Card className="max-h-[90vh] sm:max-h-[calc(90vh-150px)]">
             <CardContent className="p-4 space-y-3">
               <div className="space-y-1">
                 <label htmlFor="product-search" className="text-l font-medium">
