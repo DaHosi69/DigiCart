@@ -1,18 +1,27 @@
 import { supabase } from "@/lib/supabaseClient";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ShoppingBasket, Home, List, Settings, LogOut, Wallet, Coins } from "lucide-react";
+import {
+  ShoppingBasket,
+  Home,
+  List,
+  LogOut,
+  Wallet,
+  Coins,
+  X,
+} from "lucide-react";
 
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
+  SidebarHeader,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/AuthProvider";
 
 // Menu items.
@@ -43,7 +52,7 @@ const items = [
     url: "/debt",
     icon: Coins,
   },
- /* {
+  /* {
     title: "Einstellungen",
     url: "/home/settings",
     icon: Settings,
@@ -56,35 +65,42 @@ export default function AppSidebar() {
 
   const closeSidebar = () => {
     if (isMobile) setOpenMobile(false);
-    else setOpen(true);
+    else setOpen(false);
   };
-  
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/login", { replace: true });
   };
 
-  const { isAdmin } = useAuth(); 
+  const { isAdmin } = useAuth();
 
   return (
     <Sidebar className="transition-colors duration-500">
+      <SidebarHeader className="flex flex-row items-center justify-between p-4">
+        <span className="font-bold text-xl">DigiCart</span>
+        <Button variant="ghost" size="icon" onClick={closeSidebar}>
+          <X className="h-6 w-6 [&_svg]:!size-4" />
+        </Button>
+      </SidebarHeader>
       <SidebarContent className="transition-colors duration-500">
         <SidebarGroup className="transition-colors duration-500">
-          <SidebarGroupLabel>DigiCart</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="transition-colors duration-500">
-             {items
+              {items
                 .filter((item) => !item.adminOnly || isAdmin) // 👈 filtern
                 .map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} onClick={closeSidebar}>
-                      <item.icon />
-                      <span className="text-lg md:text-base">{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.url} onClick={closeSidebar}>
+                        <item.icon />
+                        <span className="text-lg md:text-base">
+                          {item.title}
+                        </span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               <SidebarMenuItem key={"Logout"}>
                 <SidebarMenuButton asChild>
                   <a onClick={handleLogout}>

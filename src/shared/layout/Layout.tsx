@@ -1,6 +1,19 @@
 import { Outlet } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import AppSidebar from "@/home/common/sidebar/AppSidebar";
+
+function AutoHideTrigger() {
+  const { state } = useSidebar();
+  return (
+    <div className={state === "expanded" ? "hidden" : "block"}>
+      <SidebarTrigger className="w-10 h-10 [&_svg]:!size-8" />
+    </div>
+  );
+}
 
 export default function Layout() {
   return (
@@ -13,7 +26,7 @@ export default function Layout() {
            transition-colors duration-500"
         >
           <div className="p-2">
-            <SidebarTrigger className="w-10 h-10 [&_svg]:!size-7" />
+            <AutoHideTrigger />
           </div>
           <div className="p-6">
             <Outlet />

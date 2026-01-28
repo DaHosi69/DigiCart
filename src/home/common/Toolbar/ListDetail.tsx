@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { useSimpleToasts } from "@/hooks/useSimpleToasts";
+import { Card, CardContent } from "@/components/ui/card";
 
 type ViewRow = {
   list_item_id: string;
@@ -165,59 +166,61 @@ export default function ListDetail({ listId, refreshKey = 0 }: Props) {
   }
 
   return (
-    <div className="space-y-6">
-      {byCategory.map(([category, items]) => (
-        <div key={category} className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
-            {category}
-          </div>
-
-          {items.map((it) => (
-            <div
-              key={it.list_item_id}
-              className={`flex items-center gap-3 rounded-md p-2 border transition-all ${
-                it.is_bought
-                  ? "bg-muted/50 border-transparent opacity-60"
-                  : "bg-card"
-              }`}
-              onClick={() => toggleBought(it)}
-            >
-              <input
-                type="checkbox"
-                checked={!!it.is_bought}
-                onChange={() => toggleBought(it)}
-                onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                className="h-5 w-5 cursor-pointer accent-primary"
-              />
-
-              <div
-                className={`truncate ${it.is_bought ? "line-through opacity-50" : ""}`}
-              >
-                {it.product_name}
-              </div>
-
-              <div className="text-xs opacity-70">x {it.quantity ?? 1}</div>
-
-              <div className="ml-auto text-xs opacity-70">
-                {it.ordered_by_name?.trim() || "—"}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-red-500 hover:text-red-600"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void onDelete(it.list_item_id);
-                }}
-                aria-label="Löschen"
-                title="List-Item löschen"
-              >
-                <Trash2 className="h-5 w-5" />
-              </Button>
+    <Card>
+      <CardContent className="p-4 space-y-6">
+        {byCategory.map(([category, items]) => (
+          <div key={category} className="space-y-2">
+            <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+              {category}
             </div>
-          ))}
-        </div>
-      ))}
-    </div>
+
+            {items.map((it) => (
+              <div
+                key={it.list_item_id}
+                className={`flex items-center gap-3 rounded-md p-2 border transition-all ${
+                  it.is_bought
+                    ? "bg-muted/50 border-transparent opacity-60"
+                    : "bg-card"
+                }`}
+                onClick={() => toggleBought(it)}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!it.is_bought}
+                  onChange={() => toggleBought(it)}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  className="h-5 w-5 cursor-pointer accent-primary"
+                />
+
+                <div
+                  className={`truncate ${it.is_bought ? "line-through opacity-50" : ""}`}
+                >
+                  {it.product_name}
+                </div>
+
+                <div className="text-xs opacity-70">x {it.quantity ?? 1}</div>
+
+                <div className="ml-auto text-xs opacity-70">
+                  {it.ordered_by_name?.trim() || "—"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-red-500 hover:text-red-600"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void onDelete(it.list_item_id);
+                  }}
+                  aria-label="Löschen"
+                  title="List-Item löschen"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

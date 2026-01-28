@@ -13,7 +13,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useSimpleToasts } from "@/hooks/useSimpleToasts";
 
 type Tables = Database["public"]["Tables"];
-type ShoppingList = Tables["shopping_lists"]["Row"];
+type ShoppingList = Tables["shopping_lists"]["Row"] & {
+  orders: { count: number }[];
+};
 type Product = Tables["products"]["Row"];
 type ListItemInsert = Tables["list_items"]["Insert"];
 type Order = Tables["orders"]["Row"];
@@ -48,7 +50,9 @@ export default function Home() {
   const loadLists = useCallback(async () => {
     const { data, error } = await supabase
       .from("shopping_lists")
-      .select("id,name,is_active,notes,managed_by_profile_id,created_at")
+      .select(
+        "id,name,is_active,notes,managed_by_profile_id,created_at, orders(count)",
+      )
       .eq("is_active", true)
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
@@ -59,7 +63,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from("products")
       .select(
-        "id,name,price,currency_code,category_id,unit,created_at,is_active"
+        "id,name,price,currency_code,category_id,unit,created_at,is_active",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false });
@@ -119,7 +123,7 @@ export default function Home() {
           schema: "public",
           table: "shopping_lists",
         },
-        () => scheduleListsReload()
+        () => scheduleListsReload(),
       )
       .subscribe();
 
@@ -132,7 +136,7 @@ export default function Home() {
           schema: "public",
           table: "products",
         },
-        () => scheduleProductsReload()
+        () => scheduleProductsReload(),
       )
       .subscribe();
 
@@ -176,13 +180,13 @@ export default function Home() {
 
   const totalSelected = useMemo(
     () => Object.values(selected).reduce((sum, s) => sum + s.qty, 0),
-    [selected]
+    [selected],
   );
 
   const createOrder = async (
     listId: string,
     profileId: string,
-    name: string
+    name: string,
   ): Promise<Order> => {
     const payload: OrderInsert = {
       list_id: listId,
@@ -230,17 +234,19 @@ export default function Home() {
         note: null,
       }));
 
-      const { error: liErr } = await supabase.from("list_items").insert(inserts);
+      const { error: liErr } = await supabase
+        .from("list_items")
+        .insert(inserts);
       if (liErr) throw liErr;
 
       setSelected({});
       setListRefresh((v) => v + 1);
     } catch (e: any) {
       setError(e?.message ?? "Fehler beim Hinzufügen");
-      toast.error('Produkt konnte nicht zur Liste Hinzugefügt werden');
+      toast.error("Produkt konnte nicht zur Liste Hinzugefügt werden");
     } finally {
       setAdding(false);
-      toast.success('Produkt erfolgreich zur Liste Hinzugefügt');
+      toast.success("Produkt erfolgreich zur Liste Hinzugefügt");
     }
   };
 
@@ -277,7 +283,7 @@ export default function Home() {
         <div className="mt-2 mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={goBackToPicker} className="gap-1">
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-6 w-6 [&_svg]:!size-10" />
               Zur Listen-Auswahl
             </Button>
           </div>
@@ -292,39 +298,36 @@ export default function Home() {
         }
       >
         {/* Linke Spalte */}
-        <Card className="w-full">
-          <CardContent className="p-4">
-            {pickerActive ? (
-              <>
-                <label className="text-xl font-semibold">Einkaufslisten:</label>
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {lists.map((l) => (
-                    <ListCard
-                      key={l.id}
-                      list={l}
-                      selected={false}
-                      onClick={() => {
-                        // statt setActiveList → Route wechseln
-                        navigate(`/home/lists/${l.id}`);
-                        setSelected({});
-                        setListRefresh((v) => v + 1);
-                      }}
-                    />
-                  ))}
-                  {lists.length === 0 && (
-                    <div className="text-sm text-muted-foreground">
-                      Keine aktiven Einkaufslisten.
-                    </div>
-                  )}
+        {pickerActive ? (
+          <>
+            <label className="text-xl font-semibold">Einkaufslisten:</label>
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {lists.map((l) => (
+                <ListCard
+                  key={l.id}
+                  list={l}
+                  selected={false}
+                  orderCount={l.orders?.[0]?.count}
+                  onClick={() => {
+                    // statt setActiveList → Route wechseln
+                    navigate(`/home/lists/${l.id}`);
+                    setSelected({});
+                    setListRefresh((v) => v + 1);
+                  }}
+                />
+              ))}
+              {lists.length === 0 && (
+                <div className="text-sm text-muted-foreground">
+                  Keine aktiven Einkaufslisten.
                 </div>
-              </>
-            ) : (
-              activeList && (
-                <ListDetail listId={activeList.id} refreshKey={listRefresh} />
-              )
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </div>
+          </>
+        ) : (
+          activeList && (
+            <ListDetail listId={activeList.id} refreshKey={listRefresh} />
+          )
+        )}
 
         {/* Rechte Spalte nur wenn :id */}
         {!pickerActive && activeList && (
