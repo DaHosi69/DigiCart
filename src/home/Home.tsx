@@ -15,7 +15,7 @@ import { LoadingScreen } from "@/shared/components/LoadingScreen";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"] & {
-  orders: { count: number }[];
+  list_items: { count: number }[];
 };
 type Product = Tables["products"]["Row"];
 type ListItemInsert = Tables["list_items"]["Insert"];
@@ -52,7 +52,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from("shopping_lists")
       .select(
-        "id,name,is_active,notes,managed_by_profile_id,created_at, orders(count)",
+        "id,name,is_active,notes,managed_by_profile_id,created_at, list_items(count)",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false });
@@ -141,9 +141,23 @@ export default function Home() {
       )
       .subscribe();
 
+    const chListItems = supabase
+      .channel("list_items:active")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "list_items",
+        },
+        () => scheduleListsReload(),
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(chLists);
       supabase.removeChannel(chProducts);
+      supabase.removeChannel(chListItems);
       if (listsDebounceRef.current) {
         window.clearTimeout(listsDebounceRef.current);
         listsDebounceRef.current = null;
@@ -308,7 +322,7 @@ export default function Home() {
                   key={l.id}
                   list={l}
                   selected={false}
-                  orderCount={l.orders?.[0]?.count}
+                  orderCount={l.list_items?.[0]?.count}
                   onClick={() => {
                     // statt setActiveList → Route wechseln
                     navigate(`/home/lists/${l.id}`);
