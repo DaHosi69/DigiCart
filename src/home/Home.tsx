@@ -11,7 +11,7 @@ import Toolbar from "./common/Toolbar/Toolbar";
 import ListCard from "./common/Toolbar/ListCard";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSimpleToasts } from "@/hooks/useSimpleToasts";
-import { LoadingScreen } from "@/shared/components/LoadingScreen";
+import { useLoading } from "@/contexts/LoadingContext";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"] & {
@@ -29,6 +29,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { id: listIdParam } = useParams<{ id?: string }>(); // /home/lists/:id
   const toast = useSimpleToasts();
+  const { addTask, removeTask } = useLoading();
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -73,15 +74,19 @@ export default function Home() {
   }, []);
 
   const loadAll = useCallback(async () => {
+    addTask("home-data");
     setLoading(true);
     setError(null);
     await Promise.all([loadLists(), loadProducts()]);
     setLoading(false);
-  }, [loadLists, loadProducts]);
+    removeTask("home-data");
+  }, [loadLists, loadProducts, addTask, removeTask]);
 
   useEffect(() => {
     void loadAll();
-  }, [loadAll]);
+    // Cleanup if unmount
+    return () => removeTask("home-data");
+  }, [loadAll, removeTask]);
 
   // Aktive Liste anhand Route setzen (sobald Listen geladen)
   useEffect(() => {
@@ -275,7 +280,7 @@ export default function Home() {
   };
 
   if (loading)
-    return <LoadingScreen />;
+    return null; // Global Loader
   if (error) return <div className="p-4 text-sm text-red-600">{error}</div>;
 
   const pickerActive = !listIdParam; // Route-abhängig

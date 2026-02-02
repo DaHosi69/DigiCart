@@ -7,8 +7,8 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { LoadingScreen } from "@/shared/components/LoadingScreen";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { useLoading } from "@/contexts/LoadingContext";
 
 type Role = "user" | "admin";
 type Profile = {
@@ -42,6 +42,7 @@ const AuthCtx = createContext<Ctx>({
 export const useAuth = () => useContext(AuthCtx);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { addTask, removeTask } = useLoading();
   const [booting, setBooting] = useState(true);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
@@ -49,22 +50,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 1) Session initial aus Storage laden und auf Auth-Events hören
   useEffect(() => {
+    addTask("auth-boot");
     let mounted = true;
 
     (async () => {
-      const minLoadTime = new Promise((resolve) => setTimeout(resolve, 850)); // Minimum 2 seconds loading
+      // Eine künstliche Verzögerung ist hier eigentlich nicht mehr nötig,
+      // da der globale Loading Screen das regelt (debounce).
+      // Wir lassen sie kurz drin oder entfernen sie, um "schneller" zu sein.
+      // Der User hat "warten bis alles fertig geladen ist" gesagt.
+      // Wenn es zu schnell geht, greift der debounce.
       const loadSession = supabase.auth.getSession();
 
-      const [_, { data }] = await Promise.all([minLoadTime, loadSession]);
+      const { data } = await loadSession;
 
       if (mounted) {
         setSession(data.session ?? null);
-        setBooting(false); // Session ist jetzt initial bekannt (auch wenn null)
+        setBooting(false); 
+        removeTask("auth-boot");
       }
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, s: Session |  null) => {
+      (event: AuthChangeEvent, s: Session | null) => {
         switch (event) {
           case "INITIAL_SESSION":
           case "SIGNED_IN":
@@ -92,11 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
       sub?.subscription.unsubscribe();
+      // Falls wir unmounten bevor fertig:
+      removeTask("auth-boot");
     };
-  }, []);
+  }, [addTask, removeTask]);
 
   // 2) Profil laden, wenn sich der User ändert
   useEffect(() => {
+    addTask("auth-profile");
     let active = true;
     (async () => {
       setLoading(true);
@@ -106,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (active) {
           setProfile(null);
           setLoading(false);
+          removeTask("auth-profile");
         }
         return;
       }
@@ -119,18 +130,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
 
       if (error) {
-        // Optional: console.warn("profiles load error", error);
         setProfile(null);
       } else {
         setProfile(data ?? null);
       }
       setLoading(false);
+      removeTask("auth-profile");
     })();
 
     return () => {
       active = false;
+      removeTask("auth-profile");
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, addTask, removeTask]);
 
   const value = useMemo<Ctx>(
     () => ({
@@ -140,8 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       isAdmin: profile?.role === "admin",
       signOut: async () => {
+        // Task hinzufügen, damit man beim Logout kurz den Screen sieht?
+        // Geschmacksache. 
         await supabase.auth.signOut();
-        // Navigation machst du am Button (navigate("/login"))
       },
     }),
     [booting, loading, session, profile],
@@ -149,8 +162,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthCtx.Provider value={value}>
-      {/* Während booting NICHT redirecten → sonst flackern */}
-      {booting ? <LoadingScreen /> : children}
+      {/* Wir rendern children immer, aber wenn booting true ist, 
+          zeigen wir vielleicht nichts an, damit im Hintergrund 
+          nicht schon "Login" aufblitzt. */}
+      {booting ? null : children}
     </AuthCtx.Provider>
   );
 }

@@ -7,6 +7,7 @@ import Layout from "./shared/layout/Layout.tsx";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { RequireAdmin, RequireAuth } from "./shared/components/guards.tsx";
 import { AuthProvider } from "./providers/AuthProvider.tsx";
+import { LoadingProvider } from "./contexts/LoadingContext.tsx";
 import Lists from "./home/common/Lists/Lists.tsx";
 import Products from "./home/common/Products/Products.tsx";
 import Billings from "./home/common/Billings/Billings.tsx";
@@ -18,50 +19,51 @@ import { AppToaster } from "./hooks/useSimpleToasts.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
-    <AuthProvider>
-      <BrowserRouter>
-        <RouteHistoryProvider>
+    <LoadingProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <RouteHistoryProvider>
 
-           <AppToaster />
+             <AppToaster />
 
-          <Routes>
-            <Route path="/" element={<Navigate to="/home" replace />} />
-            <Route path="/login" element={<Login />} />
+            <Routes>
+              <Route path="/" element={<Navigate to="/home" replace />} />
+              <Route path="/login" element={<Login />} />
 
-            <Route
-              element={
-                <RequireAuth>
-                  <Layout />
-                </RequireAuth>
-              }
-            >
-              <Route path="/home" element={<Home />} />
-              <Route path="/home/lists/:id" element={<Home />} />
-              {/* <Route path="/home/settings" element={<AppSettings />} /> */}
               <Route
-                path="/home/admin"
                 element={
-                  <RequireAdmin>
-                    <Home />
-                  </RequireAdmin>
+                  <RequireAuth>
+                    <Layout />
+                  </RequireAuth>
                 }
-              />
-              <Route
-                path="/lists"
-                element={
-                  <RequireAdmin>
-                    <Lists />
-                  </RequireAdmin>
-                }
-              />
-              <Route
-                path="/lists/:id/edit"
-                element={
-                  <RequireAdmin>
-                    <ShoppingListEdit />
-                  </RequireAdmin>
-                }
-              />
+              >
+                <Route path="/home" element={<Home />} />
+                <Route path="/home/lists/:id" element={<Home />} />
+                {/* <Route path="/home/settings" element={<AppSettings />} /> */}
+                <Route
+                  path="/home/admin"
+                  element={
+                    <RequireAdmin>
+                      <Home />
+                    </RequireAdmin>
+                  }
+                />
+                <Route
+                  path="/lists"
+                  element={
+                    <RequireAdmin>
+                      <Lists />
+                    </RequireAdmin>
+                  }
+                />
+                <Route
+                  path="/lists/:id/edit"
+                  element={
+                    <RequireAdmin>
+                      <ShoppingListEdit />
+                    </RequireAdmin>
+                  }
+                />
               <Route path="/products" element={<Products />} />
               <Route path="/products/:id/edit" element={<ProductEdit />} />
               <Route path="/billings" element={<Billings />} />
@@ -71,6 +73,7 @@ createRoot(document.getElementById("root")!).render(
           </Routes>
         </RouteHistoryProvider>
       </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </LoadingProvider>
   </ThemeProvider>
 );

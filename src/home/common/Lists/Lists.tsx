@@ -16,13 +16,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Plus, List } from "lucide-react";
-import { LoadingScreen } from "@/shared/components/LoadingScreen";
+import { useLoading } from "@/contexts/LoadingContext";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
 
 export default function Lists() {
   const navigate = useNavigate();
   const { isAdmin, profile } = useAuth();
+  const { addTask, removeTask } = useLoading();
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +35,7 @@ export default function Lists() {
   const [listSearch, setListSearch] = useState<string>("");
 
   const loadAllLists = async () => {
+    addTask("lists-data");
     setLoading(true);
     setError(null);
     const { data, error } = await supabase
@@ -44,10 +46,13 @@ export default function Lists() {
     if (error) setError(error.message);
     setLists(data ?? []);
     setLoading(false);
+    removeTask("lists-data");
   };
 
   useEffect(() => {
     void loadAllLists();
+    // cleanup
+    return () => removeTask("lists-data");
   }, []);
 
   const addNewList = async ({
@@ -183,9 +188,7 @@ export default function Lists() {
         />
       </div>
 
-      {loading && (
-      <LoadingScreen/>
-      )}
+      {loading && null}
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 
       {/* Trefferanzahl */}
