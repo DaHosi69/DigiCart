@@ -1,12 +1,8 @@
-import { Switch } from "@/components/ui/switch";
-import { useTheme } from "@/contexts/ThemeContext";
-import { Sun, Moon, ShoppingCart } from "lucide-react";
-import { act } from "react";
+import { ShoppingCart } from "lucide-react";
 
 type Props = { activeListName: string };
 
 export default function Toolbar({ activeListName }: Props) {
-  const { dark, toggleDark } = useTheme();
   return (
     <div className="mb-5">
       <div className="flex items-center justify-between gap-3">

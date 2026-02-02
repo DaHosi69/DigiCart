@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/shared/classes/database.types";
-import { CalendarDays, ListChecks, ShoppingCart } from "lucide-react";
+import { ListChecks, ShoppingCart } from "lucide-react";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
 

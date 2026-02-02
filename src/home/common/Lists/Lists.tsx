@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Plus, List } from "lucide-react";
+import { LoadingScreen } from "@/shared/components/LoadingScreen";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
 
@@ -183,7 +184,7 @@ export default function Lists() {
       </div>
 
       {loading && (
-        <p className="text-sm text-muted-foreground mt-4">Lade Listen…</p>
+      <LoadingScreen/>
       )}
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 

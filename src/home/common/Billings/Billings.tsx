@@ -268,7 +268,7 @@ export default function Billings() {
           table: "billing_flags",
           filter: `list_id=eq.${listId}`,
         },
-        (payload) => {
+        () => {
           scheduleFlagsReload(listId);
         },
       )

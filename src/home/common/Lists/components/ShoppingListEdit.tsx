@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Save } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
+import { LoadingScreen } from "@/shared/components/LoadingScreen";
 
 type ShoppingList = Database["public"]["Tables"]["shopping_lists"]["Row"];
 type ShoppingListUpdate = Database["public"]["Tables"]["shopping_lists"]["Update"];
@@ -92,7 +93,7 @@ export default function ShoppingListEdit() {
     navigate("/lists"); // oder navigate(-1)
   };
 
-  if (loading) return <div className="p-4 text-sm text-muted-foreground">Lade Liste…</div>;
+  if (loading) return <LoadingScreen/>;
   if (error) return <div className="p-4 text-sm text-red-600">{error}</div>;
 
   return (

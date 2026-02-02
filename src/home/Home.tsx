@@ -11,6 +11,7 @@ import Toolbar from "./common/Toolbar/Toolbar";
 import ListCard from "./common/Toolbar/ListCard";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSimpleToasts } from "@/hooks/useSimpleToasts";
+import { LoadingScreen } from "@/shared/components/LoadingScreen";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"] & {
@@ -260,7 +261,7 @@ export default function Home() {
   };
 
   if (loading)
-    return <div className="p-4 text-sm text-muted-foreground">Lade…</div>;
+    return <LoadingScreen />;
   if (error) return <div className="p-4 text-sm text-red-600">{error}</div>;
 
   const pickerActive = !listIdParam; // Route-abhängig
