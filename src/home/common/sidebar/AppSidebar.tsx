@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   ShoppingBasket,
@@ -68,12 +68,12 @@ export default function AppSidebar() {
     else setOpen(false);
   };
 
+  const { isAdmin, signOut } = useAuth();
+
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     navigate("/login", { replace: true });
   };
-
-  const { isAdmin } = useAuth();
 
   return (
     <Sidebar className="transition-colors duration-500">

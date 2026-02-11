@@ -106,20 +106,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 2) Profil laden, wenn sich der User ändert
   useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) {
+      setProfile(null);
+      return;
+    }
+
     addTask("auth-profile");
     let active = true;
     (async () => {
       setLoading(true);
-
-      const userId = session?.user?.id;
-      if (!userId) {
-        if (active) {
-          setProfile(null);
-          setLoading(false);
-          removeTask("auth-profile");
-        }
-        return;
-      }
 
       const { data, error } = await supabase
         .from("profiles")
@@ -152,9 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       isAdmin: profile?.role === "admin",
       signOut: async () => {
-        // Task hinzufügen, damit man beim Logout kurz den Screen sieht?
-        // Geschmacksache. 
+        // Optional: Hier könnte man auch kurz "Loading" anzeigen
         await supabase.auth.signOut();
+        // Session wird durch onAuthStateChange auf null gesetzt
+        // Das löst den useEffect oben aus -> profile = null (ohne Task)
       },
     }),
     [booting, loading, session, profile],
