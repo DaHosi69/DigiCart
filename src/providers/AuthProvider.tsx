@@ -109,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userId = session?.user?.id;
     if (!userId) {
       setProfile(null);
+      setLoading(false);
       return;
     }
 
