@@ -1,23 +1,36 @@
-// src/home/common/Billings/Billings.tsx
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from "@/shared/classes/database.types";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   CheckCircle2,
   Loader2,
   XCircle,
   ArrowRightLeft,
   Coins,
+  TicketPercent,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Tables = Database["public"]["Tables"];
 type ShoppingList = Tables["shopping_lists"]["Row"];
 type Product = Tables["products"]["Row"];
+type ListDiscount = Tables["list_discounts"]["Row"];
 
 type ViewRow = {
   list_item_id: string;
@@ -59,6 +72,12 @@ export default function Billings() {
   const [debtMap, setDebtMap] = useState<Record<string, boolean>>({});
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
   const [movingToDebt, setMovingToDebt] = useState<Record<string, boolean>>({});
+
+  const [discount, setDiscount] = useState<ListDiscount | null>(null);
+  const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [discountPreferred, setDiscountPreferred] = useState<string[]>([]);
+  const [savingDiscount, setSavingDiscount] = useState(false);
 
   // Für gezielte Product-Reloads
   const productIdSetRef = useRef<Set<string>>(new Set());
@@ -147,6 +166,13 @@ export default function Billings() {
         .select("payer_name,is_paid,is_debt")
         .eq("list_id", listId);
 
+      // d) Discount
+      const { data: disc, error: dErr } = await supabase
+        .from("list_discounts")
+        .select("*")
+        .eq("list_id", listId)
+        .maybeSingle();
+
       if (!fErr) {
         const map: Record<string, boolean> = {};
         const dMap: Record<string, boolean> = {};
@@ -159,6 +185,12 @@ export default function Billings() {
         });
         setPaidMap(map);
         setDebtMap(dMap);
+      }
+
+      if (!dErr) {
+        setDiscount(disc);
+      } else {
+        setDiscount(null);
       }
 
       setLoadingRows(false);
@@ -248,6 +280,7 @@ export default function Billings() {
       setPriceMap({});
       setPaidMap({});
       setDebtMap({});
+      setDiscount(null);
       return;
     }
     loadRowsAndFlags(selectedList.id);
@@ -367,19 +400,102 @@ export default function Billings() {
       );
   }, [rows, priceMap, nameFilter]);
 
+  // --- Discount Distribution Logic ---
+  const finalTotals = useMemo(() => {
+    // Clone totals to avoid mutating the original array
+    const result = totals.map(([name, data]) => ({
+      name,
+      originalSum: data.sum,
+      finalSum: data.sum,
+      currency: data.currency,
+      count: data.count,
+      isPaid: paidMap[name],
+      isDebt: debtMap[name],
+      discountApplied: 0,
+    }));
+
+    if (!discount || discount.amount <= 0) {
+      return result;
+    }
+
+    let remainingDiscount = discount.amount;
+    const preferred = discount.preferred_payers || [];
+
+    // 1. Distribute to preferred persons first
+    if (preferred.length > 0) {
+      // Filter valid preferred users who are actually in the list
+      const validPreferred = result.filter((r) => preferred.includes(r.name));
+
+      if (validPreferred.length > 0) {
+        let preferredActive = true;
+        while (remainingDiscount > 0.005 && preferredActive) {
+          // Find those among preferred who still have debt
+          const unpaidPreferred = validPreferred.filter((r) => r.finalSum > 0);
+
+          if (unpaidPreferred.length === 0) {
+            preferredActive = false;
+            break;
+          }
+
+          const splitAmount = remainingDiscount / unpaidPreferred.length;
+          let distributedInRound = 0;
+
+          for (const person of unpaidPreferred) {
+             const deduction = Math.min(person.finalSum, splitAmount);
+             person.finalSum -= deduction;
+             person.discountApplied += deduction;
+             remainingDiscount -= deduction;
+             distributedInRound += deduction;
+          }
+          
+           // Safety break if we can't distribute anymore (e.g. strict float issues)
+           if (distributedInRound < 0.001) break;
+        }
+      }
+    }
+
+    // 2. Distribute remaining discount to everyone else (or everyone if no preferred)
+    //    Logic: While remaining > 0 and people have debt, split equally among those with debt.
+
+    while (remainingDiscount > 0.005) {
+        const unpaidPeople = result.filter(r => r.finalSum > 0);
+        
+        if (unpaidPeople.length === 0) break; // All paid
+
+        const splitAmount = remainingDiscount / unpaidPeople.length;
+        let distributedInRound = 0;
+
+        for (const person of unpaidPeople) {
+            const deduction = Math.min(person.finalSum, splitAmount);
+            person.finalSum -= deduction;
+            person.discountApplied += deduction;
+            remainingDiscount -= deduction;
+            distributedInRound += deduction;
+        }
+
+        if (distributedInRound < 0.001) break; // Safety
+    }
+
+    return result;
+  }, [totals, discount, paidMap, debtMap]);
+
+
   const sumOverview = useMemo(() => {
     let total = 0;
     let paid = 0;
     let open = 0;
     let currency = "EUR";
-    totals.forEach(([name, t]) => {
-      total += t.sum;
-      if (paidMap[name]) paid += t.sum;
-      else open += t.sum;
+    
+    finalTotals.forEach((t) => {
+      total += t.originalSum; // The original bill total
+      if (t.isPaid) paid += t.finalSum;
+      else open += t.finalSum;
+      
       currency = t.currency || currency;
     });
-    return { total, paid, open, currency };
-  }, [totals, paidMap]);
+    
+    return { total, paid, open, currency, discountAmount: discount?.amount ?? 0 };
+  }, [finalTotals, discount]);
 
   const byCategory = useMemo(() => {
     const cat = new Map<string, ViewRow[]>();
@@ -442,6 +558,59 @@ export default function Billings() {
     }
   };
 
+  const handleOpenDiscountDialog = () => {
+    setDiscountAmount(discount?.amount?.toString() ?? "");
+    setDiscountPreferred(discount?.preferred_payers ?? []);
+    setIsDiscountDialogOpen(true);
+  };
+
+  const handleSaveDiscount = async () => {
+    if (!selectedList) return;
+    setSavingDiscount(true);
+
+    try {
+        const amount = parseFloat(discountAmount.replace(",", ".")) || 0;
+        
+        // If amount is 0, delete the discount
+        if (amount <= 0) {
+            if (discount?.id) {
+               await supabase.from("list_discounts").delete().eq("id", discount.id);
+            }
+            setDiscount(null);
+            setIsDiscountDialogOpen(false);
+            return;
+        }
+
+        const payload = {
+            list_id: selectedList.id,
+            amount: amount,
+            preferred_payers: discountPreferred
+        };
+
+        const { data, error } = await supabase
+            .from("list_discounts")
+            .upsert(payload, { onConflict: "list_id" }) 
+            .select()
+            .single();
+
+        if (error) throw error;
+        setDiscount(data);
+        setIsDiscountDialogOpen(false);
+
+    } catch (e: any) {
+        alert("Fehler beim Speichern des Rabatts: " + e.message);
+    } finally {
+        setSavingDiscount(false);
+    }
+  };
+
+  const toggleDiscountPreferred = (name: string) => {
+    setDiscountPreferred(prev => {
+        if (prev.includes(name)) return prev.filter(n => n !== name);
+        return [...prev, name];
+    });
+  };
+
   const moveToDebt = async (name: string, amount: number) => {
     if (
       !confirm(
@@ -469,9 +638,6 @@ export default function Billings() {
 
       if (existing) {
         // Update existing
-        // Option: Overwrite amount or add? Usually "Move to debt" implies the total bill amount.
-        // If the user already moved it, maybe they want to update it.
-        // I will overwrite the amount to match the current bill sum.
         const { error: updateError } = await supabase
           .from("debts")
           .update({ amount: amount })
@@ -587,6 +753,16 @@ export default function Billings() {
                 <div className="mt-1 text-xl font-semibold tabular-nums">
                   {sumOverview.total.toFixed(2)} {sumOverview.currency}
                 </div>
+                {sumOverview.discountAmount > 0 && (
+                   <div className="text-xs text-rose-500 font-medium mt-1">
+                     - {sumOverview.discountAmount.toFixed(2)} {sumOverview.currency} Rabatt
+                   </div>
+                )}
+                {sumOverview.discountAmount > 0 && (
+                   <div className="text-sm font-bold mt-1 border-t pt-1">
+                     = {(sumOverview.total - sumOverview.discountAmount).toFixed(2)} {sumOverview.currency}
+                   </div>
+                )}
               </div>
               <div className="rounded-md border p-3 bg-emerald-50 dark:bg-emerald-950/20">
                 <div className="flex items-center gap-2">
@@ -620,9 +796,20 @@ export default function Billings() {
         {/* Summen pro Name */}
         <Card>
           <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-medium">Summen je Bestellname</div>
-              <div className="w-56">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                 <div className="text-sm font-medium">Summen je Bestellname</div>
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   onClick={handleOpenDiscountDialog}
+                   className="h-7 text-xs gap-1 border-dashed"
+                 >
+                    <TicketPercent className="h-3 w-3" />
+                    {discount ? "Rabatt bearbeiten" : "Rabatt hinzufügen"}
+                 </Button>
+              </div>
+              <div className="w-full sm:w-56">
                 <Input
                   placeholder="Namen filtern…"
                   value={nameFilter}
@@ -640,15 +827,17 @@ export default function Billings() {
               <div className="text-sm text-muted-foreground">Keine Daten.</div>
             ) : (
               <div className="rounded-md border overflow-hidden">
-                {totals.map(([name, t]) => {
-                  const paid = !!paidMap[name];
-                  const isDebt = !!debtMap[name];
-                  const isBusy = !!toggling[name];
+                {finalTotals.map((t) => {
+                  const paid = t.isPaid;
+                  const isDebt = t.isDebt;
+                  const isBusy = !!toggling[t.name];
+                  const hasDiscount = t.discountApplied > 0;
+                  
                   return (
                     <div
-                      key={name}
+                      key={t.name}
                       className={cn(
-                        "flex items-center justify-between p-3 gap-3",
+                        "flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3",
                         "border-b last:border-b-0 transition-colors",
                         paid
                           ? isDebt
@@ -666,25 +855,37 @@ export default function Billings() {
                               "border-amber-400 text-amber-700 dark:text-amber-400",
                           )}
                         >
-                          {name}
+                          {t.name}
                         </Badge>
                         <span className="hidden md:block text-xs text-muted-foreground whitespace-nowrap">
                           {t.count} Produkte
                         </span>
+                        {hasDiscount && (
+                            <Badge variant="outline" className="text-xs border-rose-200 text-rose-600 bg-rose-50 dark:bg-rose-950/50">
+                                -{t.discountApplied.toFixed(2)} Rabatt
+                            </Badge>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "font-medium tabular-nums",
-                            paid
-                              ? isDebt
-                                ? "text-amber-700 dark:text-amber-400"
-                                : "text-emerald-700 dark:text-emerald-300"
-                              : "",
-                          )}
-                        >
-                          {t.sum.toFixed(2)} {t.currency}
+                      <div className="flex items-center gap-3 justify-between sm:justify-end w-full sm:w-auto">
+                        <div className="flex flex-col items-end">
+                            {hasDiscount && (
+                                <span className="text-xs text-muted-foreground line-through decoration-rose-500/50">
+                                    {t.originalSum.toFixed(2)} {t.currency}
+                                </span>
+                            )}
+                            <div
+                            className={cn(
+                                "font-medium tabular-nums",
+                                paid
+                                ? isDebt
+                                    ? "text-amber-700 dark:text-amber-400"
+                                    : "text-emerald-700 dark:text-emerald-300"
+                                : "",
+                            )}
+                            >
+                            {t.finalSum.toFixed(2)} {t.currency}
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -693,12 +894,12 @@ export default function Billings() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => moveToDebt(name, t.sum)}
-                              disabled={isBusy || !!movingToDebt[name]}
-                              className="border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 gap-1"
+                              onClick={() => moveToDebt(t.name, t.finalSum)}
+                              disabled={isBusy || !!movingToDebt[t.name]}
+                              className="border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 gap-1 h-8"
                               title="Zu Schulden hinzufügen & als bezahlt markieren"
                             >
-                              {movingToDebt[name] ? (
+                              {movingToDebt[t.name] ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
                                 <ArrowRightLeft className="h-4 w-4" />
@@ -712,10 +913,10 @@ export default function Billings() {
                           <Button
                             variant={paid ? "secondary" : "outline"}
                             size="sm"
-                            onClick={() => togglePaid(name)}
-                            disabled={isBusy || !!movingToDebt[name]}
+                            onClick={() => togglePaid(t.name)}
+                            disabled={isBusy || !!movingToDebt[t.name]}
                             className={cn(
-                              "gap-1",
+                              "gap-1 h-8",
                               paid
                                 ? isDebt
                                   ? "border-amber-300 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/20"
@@ -831,6 +1032,64 @@ export default function Billings() {
           </CardContent>
         </Card>
       </div>
+
+       <Dialog open={isDiscountDialogOpen} onOpenChange={setIsDiscountDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Gutschein / Rabatt eintragen</DialogTitle>
+            <DialogDescription>
+              Der Betrag wird zuerst von den bevorzugten Personen abgezogen, danach auf den Rest verteilt.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="discount-amount">Betrag (EUR)</Label>
+              <Input
+                id="discount-amount"
+                value={discountAmount}
+                onChange={(e) => setDiscountAmount(e.target.value)}
+                placeholder="0.00"
+                type="number"
+                step="0.01"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Bevorzugte Personen (optional)</Label>
+               <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                {totals.map(([name]) => (
+                    <div key={name} className="flex items-center space-x-2">
+                        <Checkbox 
+                            id={`pref-${name}`} 
+                            checked={discountPreferred.includes(name)}
+                            onCheckedChange={() => toggleDiscountPreferred(name)}
+                        />
+                        <label
+                            htmlFor={`pref-${name}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                            {name}
+                        </label>
+                    </div>
+                ))}
+            </div>
+            </div>
+          </div>
+          <DialogFooter>
+             {discount && (
+                 <Button variant="destructive" onClick={() => {
+                     setDiscountAmount("0");
+                 }} className="mr-auto">
+                    <Trash2 className="w-4 h-4 mr-2" /> Löschen
+                 </Button>
+             )}
+            <Button onClick={handleSaveDiscount} disabled={savingDiscount}>
+               {savingDiscount && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
